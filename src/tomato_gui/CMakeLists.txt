@@ -13,8 +13,16 @@ set(CMAKE_PROJECT_NAME tomato_guiApp )
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 6.2 REQUIRED COMPONENTS Core Gui Qml Quick)
-find_package(catkin REQUIRED COMPONENTS roscpp)
+find_package(Qt6 6.2 REQUIRED COMPONENTS Core Gui Qml Quick Multimedia)
+find_package(catkin REQUIRED COMPONENTS
+    roscpp
+    image_transport
+    cv_bridge
+)
+find_package(OpenCV REQUIRED COMPONENTS
+    opencv_core
+    opencv_highgui
+)
 
 if (Qt6_VERSION VERSION_GREATER_EQUAL 6.3)
     qt_standard_project_setup()
@@ -22,9 +30,13 @@ endif()
 
 include_directories(
     ${catkin_INCLUDE_DIRS}
+    ${OpenCV_INCLUDE_DIRS}
 )
 
-qt_add_executable(tomato_guiApp src/main.cpp)
+qt_add_executable(tomato_guiApp
+    src/main.cpp
+    src/imageprovider.h
+    src/imageprovider.cpp)
 
 qt_add_resources(tomato_guiApp "configuration"
     PREFIX "/"
@@ -37,8 +49,10 @@ target_link_libraries(tomato_guiApp PRIVATE
     Qt6::Gui
     Qt6::Qml
     Qt6::Quick
+    Qt6::Multimedia
     PUBLIC
     ${catkin_LIBRARIES}
+    ${OpenCV_LIBRARIES}
 )
 
 set(QT_QML_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/qml)

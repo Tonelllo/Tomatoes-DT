@@ -5,16 +5,25 @@
 #include <QQmlApplicationEngine>
 
 #include "app_environment.h"
+#include "imageprovider.h"
 #include "import_qml_components_plugins.h"
 #include "import_qml_plugins.h"
-#include "ros/ros.h"
+#include <ros/ros.h>
 
 int main(int argc, char *argv[])
 {
+    ros::init(argc, argv, "ImageProvider");
+    ros::AsyncSpinner spinner(4);
+    ros::NodeHandle nh;
+    spinner.start();
+
     set_qt_environment();
     QGuiApplication app(argc, argv);
 
     QQmlApplicationEngine engine;
+
+    ImageProvider *imageProvider = new ImageProvider(nh, &app);
+    qmlRegisterSingletonInstance("Tonelllo.ImageProvider", 1, 0, "ImageProvider", imageProvider);
     const QUrl url(u"qrc:/qt/qml/Main/main.qml"_qs);
     QObject::connect(
         &engine,

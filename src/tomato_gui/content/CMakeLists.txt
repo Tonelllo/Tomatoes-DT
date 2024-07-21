@@ -9,6 +9,8 @@ qt6_add_qml_module(content
     QML_FILES
         App.qml
         Screen01.ui.qml
+        CameraPane.qml
+        CameraPaneForm.ui.qml
     RESOURCES
         fonts/fonts.txt
 )
