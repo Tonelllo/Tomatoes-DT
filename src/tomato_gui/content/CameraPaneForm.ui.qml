@@ -13,36 +13,200 @@ import QtMultimedia
 
 Rectangle {
     id: cameraPane
-    width: 640
-    height: 480
+    width: 1200
+    height: 700
+
+    color: Universal.background
 
     property alias button: button
     property alias baseImage: baseImage
+    property alias maskedImage: maskedImage
+
+    property alias hue_min_spin: hue_min_spin
+    property alias hue_min_slider: hue_min_slider
+    property alias hue_max_spin: hue_max_spin
+    property alias hue_max_slider: hue_max_slider
+
+    property alias sat_min_spin: sat_min_spin
+    property alias sat_min_slider: sat_min_slider
+    property alias sat_max_spin: sat_max_spin
+    property alias sat_max_slider: sat_max_slider
+
+    property alias val_min_spin: val_min_spin
+    property alias val_min_slider: val_min_slider
+    property alias val_max_spin: val_max_spin
+    property alias val_max_slider: val_max_slider
+
+    property int hue_min: 0
+    property int hue_max: 0
+
+    property int sat_min: 0
+    property int sat_max: 0
+
+    property int val_min: 0
+    property int val_max: 0
 
     Button {
         id: button
     }
 
-    VideoOutput {
-        id: baseImage
+    ColumnLayout {
+        id: mainStack
         Layout.fillWidth: true
         Layout.fillHeight: true
-        // width: 100
-        // height: 100
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            id: upLayout
+            VideoOutput {
+                id: baseImage
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+            }
+            VideoOutput {
+                id: maskedImage
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+            }
+        }
+        Rectangle {
+            id: controls
+            ColumnLayout {
+                Layout.fillHeight: true
+                Layout.fillWidth: true
+                Item {
+                    Layout.preferredHeight: 50
+                    Text {
+                        id: hue_min_text
+                        text: "Hue min"
+                        color: "white"
+                    }
+                    Slider {
+                        id: hue_min_slider
+                        anchors.left: hue_min_text.right
+                        value: hue_min
+                        from: 0
+                        to: 255
+                    }
+                    SpinBox {
+                        id: hue_min_spin
+                        editable: true
+                        anchors.left: hue_min_slider.right
+                        value: hue_min
+                        from: 0
+                        to: 255
+                    }
+                    Text {
+                        id: hue_max_text
+                        anchors.left: hue_min_spin.right
+                        text: "Hue max"
+                        color: "white"
+                    }
+                    Slider {
+                        id: hue_max_slider
+                        anchors.left: hue_max_text.right
+                        value: hue_max
+                        from: 0
+                        to: 255
+                    }
+                    SpinBox {
+                        id: hue_max_spin
+                        editable: true
+                        anchors.left: hue_max_slider.right
+                        value: hue_max
+                        from: 0
+                        to: 255
+                    }
+                }
+                Item {
+                    Layout.preferredHeight: 50
+                    Text {
+                        id: sat_min_text
+                        text: "Sat min"
+                        color: "white"
+                    }
+                    Slider {
+                        id: sat_min_slider
+                        anchors.left: sat_min_text.right
+                        value: sat_min
+                        from: 0
+                        to: 255
+                    }
+                    SpinBox {
+                        id: sat_min_spin
+                        editable: true
+                        anchors.left: sat_min_slider.right
+                        value: sat_min
+                        from: 0
+                        to: 255
+                    }
+                    Text {
+                        id: sat_max_text
+                        anchors.left: sat_min_spin.right
+                        text: "Sat max"
+                        color: "white"
+                    }
+                    Slider {
+                        id: sat_max_slider
+                        anchors.left: sat_max_text.right
+                        value: sat_max
+                        from: 0
+                        to: 255
+                    }
+                    SpinBox {
+                        id: sat_max_spin
+                        editable: true
+                        anchors.left: sat_max_slider.right
+                        value: sat_max
+                        from: 0
+                        to: 255
+                    }
+                }
+                Item {
+                    Layout.preferredHeight: 50
+                    Text {
+                        id: val_min_text
+                        text: "Val min"
+                        color: "white"
+                    }
+                    Slider {
+                        id: val_min_slider
+                        anchors.left: val_min_text.right
+                        value: val_min
+                        from: 0
+                        to: 255
+                    }
+                    SpinBox {
+                        id: val_min_spin
+                        editable: true
+                        anchors.left: val_min_slider.right
+                        value: val_min
+                        from: 0
+                        to: 255
+                    }
+                    Text {
+                        id: val_max_text
+                        anchors.left: val_min_spin.right
+                        text: "Val max"
+                        color: "white"
+                    }
+                    Slider {
+                        id: val_max_slider
+                        anchors.left: val_max_text.right
+                        value: val_max
+                        from: 0
+                        to: 255
+                    }
+                    SpinBox {
+                        id: val_max_spin
+                        editable: true
+                        anchors.left: val_max_slider.right
+                        value: val_max
+                        from: 0
+                        to: 255
+                    }
+                }
+            }
+        }
     }
-    // ColumnLayout {
-    //     id: mainStack
-    //     anchors.fill: parent
-    //     RowLayout {
-    //         id: upLayout
-    //         anchors.fill: parent
-    //         VideoOutput {
-    //             id: baseImage
-    //             Layout.fillWidth: true
-    //             Layout.fillHeight: true
-    //             // width: 100
-    //             // height: 100
-    //         }
-    //     }
-    // }
 }

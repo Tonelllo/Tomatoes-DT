@@ -14,30 +14,33 @@
 class ImageProvider : public QVideoSink
 {
     Q_OBJECT
-    Q_PROPERTY(QVideoFrame* maskedImage READ maskedImage WRITE setMaskedImage NOTIFY maskedImageChanged FINAL)
-    Q_PROPERTY(QVideoSink* sink READ sink WRITE setsink NOTIFY sinkChanged FINAL)
+    Q_PROPERTY(QVideoSink* origSink READ origSink WRITE setOrigSink NOTIFY origSinkChanged FINAL)
+    Q_PROPERTY(QVideoSink* maskedSink READ maskedSink WRITE setMaskedSink NOTIFY maskedSinkChanged FINAL)
 public:
     explicit ImageProvider(ros::NodeHandle, QObject *parent = nullptr);
-    QVideoFrame *maskedImage() const;
     void setMaskedImage(QVideoFrame *newMaskedImage);
 
-    QVideoSink *sink() const;
-    void setsink(QVideoSink *newSink);
+    QVideoSink *origSink() const;
+
+    QVideoSink *maskedSink() const;
+    void setMaskedSink(QVideoSink *newMaskedSink);
 
 signals:
-    void maskedImageChanged();
+    void origSinkChanged();
 
-    void sinkChanged();
+    void maskedSinkChanged();
 
 private:
     image_transport::ImageTransport m_image_transport;
     image_transport::Subscriber m_image_sub;
     QVideoFrame *m_maskedImage = nullptr;
     void frameCallback(const sensor_msgs::ImageConstPtr& img);
-    QVideoSink *m_sink = nullptr;
+    QVideoSink *m_origSink = nullptr;
+
+    QVideoSink *m_maskedSink = nullptr;
 
 public slots:
-    void setSink(QVideoSink*);
+    void setOrigSink(QVideoSink*);
 };
 
 #endif // IMAGEPROVIDER_H
