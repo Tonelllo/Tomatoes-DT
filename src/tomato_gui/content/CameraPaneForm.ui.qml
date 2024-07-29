@@ -10,6 +10,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts
 import QtMultimedia
+import Tonelllo.ImageProvider 1.0
 
 Rectangle {
     id: cameraPane
@@ -36,9 +37,6 @@ Rectangle {
     property alias val_min_slider: val_min_slider
     property alias val_max_spin: val_max_spin
     property alias val_max_slider: val_max_slider
-
-    property int hue_min: 0
-    property int hue_max: 0
 
     property int sat_min: 0
     property int sat_max: 0
@@ -84,7 +82,7 @@ Rectangle {
                     Slider {
                         id: hue_min_slider
                         anchors.left: hue_min_text.right
-                        value: hue_min
+                        value: ImageProvider.hue_min
                         from: 0
                         to: 255
                     }
@@ -92,7 +90,7 @@ Rectangle {
                         id: hue_min_spin
                         editable: true
                         anchors.left: hue_min_slider.right
-                        value: hue_min
+                        value: ImageProvider.hue_min
                         from: 0
                         to: 255
                     }
@@ -105,7 +103,7 @@ Rectangle {
                     Slider {
                         id: hue_max_slider
                         anchors.left: hue_max_text.right
-                        value: hue_max
+                        value: ImageProvider.hue_max
                         from: 0
                         to: 255
                     }
@@ -113,7 +111,7 @@ Rectangle {
                         id: hue_max_spin
                         editable: true
                         anchors.left: hue_max_slider.right
-                        value: hue_max
+                        value: ImageProvider.hue_max
                         from: 0
                         to: 255
                     }
@@ -128,7 +126,7 @@ Rectangle {
                     Slider {
                         id: sat_min_slider
                         anchors.left: sat_min_text.right
-                        value: sat_min
+                        value: ImageProvider.sat_min
                         from: 0
                         to: 255
                     }
@@ -136,7 +134,7 @@ Rectangle {
                         id: sat_min_spin
                         editable: true
                         anchors.left: sat_min_slider.right
-                        value: sat_min
+                        value: ImageProvider.sat_min
                         from: 0
                         to: 255
                     }
@@ -149,7 +147,7 @@ Rectangle {
                     Slider {
                         id: sat_max_slider
                         anchors.left: sat_max_text.right
-                        value: sat_max
+                        value: ImageProvider.sat_max
                         from: 0
                         to: 255
                     }
@@ -157,7 +155,7 @@ Rectangle {
                         id: sat_max_spin
                         editable: true
                         anchors.left: sat_max_slider.right
-                        value: sat_max
+                        value: ImageProvider.sat_max
                         from: 0
                         to: 255
                     }
@@ -172,7 +170,7 @@ Rectangle {
                     Slider {
                         id: val_min_slider
                         anchors.left: val_min_text.right
-                        value: val_min
+                        value: ImageProvider.val_min
                         from: 0
                         to: 255
                     }
@@ -180,7 +178,7 @@ Rectangle {
                         id: val_min_spin
                         editable: true
                         anchors.left: val_min_slider.right
-                        value: val_min
+                        value: ImageProvider.val_min
                         from: 0
                         to: 255
                     }
@@ -193,7 +191,7 @@ Rectangle {
                     Slider {
                         id: val_max_slider
                         anchors.left: val_max_text.right
-                        value: val_max
+                        value: ImageProvider.val_max
                         from: 0
                         to: 255
                     }
@@ -201,7 +199,7 @@ Rectangle {
                         id: val_max_spin
                         editable: true
                         anchors.left: val_max_slider.right
-                        value: val_max
+                        value: ImageProvider.val_max
                         from: 0
                         to: 255
                     }

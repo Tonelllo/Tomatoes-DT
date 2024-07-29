@@ -107,3 +107,5 @@ compile_commands.json
 *creator.user*
 
 *_qmlcache.qrc
+.cache
+.qtc_clangd

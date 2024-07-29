@@ -10,40 +10,52 @@ CameraPaneForm {
 
     hue_min_spin.onValueChanged: {
         hue_min_slider.value = hue_min_spin.value
+        ImageProvider.hue_min = hue_min_spin.value
     }
     hue_min_slider.onValueChanged: {
         hue_min_spin.value = hue_min_slider.value
+        ImageProvider.hue_min = hue_min_slider.value
     }
     hue_max_spin.onValueChanged: {
         hue_max_slider.value = hue_max_spin.value
+        ImageProvider.hue_max = hue_max_spin.value
     }
     hue_max_slider.onValueChanged: {
         hue_max_spin.value = hue_max_slider.value
+        ImageProvider.hue_max = hue_max_slider.value
     }
 
     sat_min_spin.onValueChanged: {
         sat_min_slider.value = sat_min_spin.value
+        ImageProvider.sat_min = sat_min_spin.value
     }
     sat_min_slider.onValueChanged: {
         sat_min_spin.value = sat_min_slider.value
+        ImageProvider.sat_min = sat_min_slider.value
     }
     sat_max_spin.onValueChanged: {
         sat_max_slider.value = sat_max_spin.value
+        ImageProvider.sat_max = sat_max_spin.value
     }
     sat_max_slider.onValueChanged: {
         sat_max_spin.value = sat_max_slider.value
+        ImageProvider.sat_max = sat_max_slider.value
     }
 
     val_min_spin.onValueChanged: {
         val_min_slider.value = val_min_spin.value
+        ImageProvider.val_min = val_min_spin.value
     }
     val_min_slider.onValueChanged: {
         val_min_spin.value = val_min_slider.value
+        ImageProvider.val_min = val_min_slider.value
     }
     val_max_spin.onValueChanged: {
         val_max_slider.value = val_max_spin.value
+        ImageProvider.val_max = val_max_spin.value
     }
     val_max_slider.onValueChanged: {
         val_max_spin.value = val_max_slider.value
+        ImageProvider.val_max = val_max_slider.value
     }
 }

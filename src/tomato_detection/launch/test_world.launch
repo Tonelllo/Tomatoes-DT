@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<launch>
+    <include file="$(find tiago_gazebo)/launch/tiago_gazebo.launch">
+        <arg name="public_sim" value="true"/>
+        <arg name="end_effector" value="pal-gripper"/>
+        <arg name="world" value="test_world"/>
+    </include>
+   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find tomato_detection)/config/sim.rviz" />
+</launch>
