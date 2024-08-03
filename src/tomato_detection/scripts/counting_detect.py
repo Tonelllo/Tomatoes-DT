@@ -33,6 +33,8 @@ def giveBestPosition(req):
     global best_tilt, number_x, number_y, val_x, val_y, image_subscriber, head_subscriber
 
     if req.activate:
+        # image_subscriber = rospy.Subscriber(
+        #     "xtion/rgb/image_rect_color", Image, callback)
         image_subscriber = rospy.Subscriber(
             "xtion/rgb/image_raw", Image, callback)
         head_subscriber = rospy.Subscriber("/head_controller/state",
@@ -129,11 +131,11 @@ def callback(data):
         posn.append(head_tilt)
         index += 1
 
-    # cv2.imshow("count", result[0].plot())
-    # cv2.waitKey(1)
+        # cv2.imshow("count", result[0].plot())
+        # cv2.waitKey(1)
 
 
-rospy.init_node("detector")
+rospy.init_node("counter")
 camera_info = rospy.Subscriber("/xtion/rgb/camera_info", CameraInfo, getParams)
 rospy.Service("tomato_counting/get_best_tilt", BestPos, giveBestPosition)
 # model.track(, show=True)

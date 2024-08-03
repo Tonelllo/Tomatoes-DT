@@ -1,15 +1,15 @@
 import rospy
 from cv_bridge import CvBridge
-import cv2
 from sensor_msgs.msg import Image
-from geometry_msgs.msg import Pose2D
+from geometry_msgs.msg import PoseArray
+from geometry_msgs.msg import Pose
 from ultralytics import YOLO
 import numpy as np
 
 bridge = CvBridge()
 model = YOLO("best.pt")
 tomatoes = {}
-pub = rospy.Publisher("detection/current_best", Pose2D, queue_size=5)
+pub = rospy.Publisher("tomato_detection/detected_tomatoes", PoseArray, queue_size=5)
 classes = ['RIPE', 'HALF', 'UNRIPE']
 
 MAX_HISTORY = 30
@@ -24,8 +24,8 @@ def getCenter(x, y, w, h):
 #     return sum(np.std(tomatoes[x], axis=0))
 
 def callback(data):
-    image = bridge.imgmsg_to_cv2(data)
-    result = model.track(image, persist=True, verbose=False)
+    image = bridge.imgmsg_to_cv2(data, desired_encoding="bgr8")
+    result = model.track(image, persist=True, verbose=False, tracker="custom_botsort.yaml")
     boxes = result[0].boxes.xywh.cpu()
 
     annotated = result[0].plot()
@@ -60,15 +60,20 @@ def callback(data):
         # they should be quite easily visible
         sorted_keys_by_time = list(tomatoes.keys())
         sorted_keys_by_time.sort()
-        print("Sorted by stab: ", sorted_keys_by_time)
+        # print("Sorted by stab: ", sorted_keys_by_time)
 
-        if len(tomatoes[sorted_keys_by_time[0]]) == MAX_HISTORY:
-            avg = np.mean(tomatoes[sorted_keys_by_time[0]], axis=0)
-            out = Pose2D()
-            out.x = avg[0]
-            out.y = avg[1]
-            out.theta = -1
-            pub.publish(out)
+        out = PoseArray()
+        for tomato in sorted_keys_by_time:
+            if len(tomatoes[tomato]) == MAX_HISTORY:
+                elem = Pose()
+                avg = np.mean(tomatoes[tomato], axis=0)
+                elem.position.x = avg[0]
+                elem.position.y = avg[1]
+                elem.position.z = -1
+                out.poses.append(elem)
+                # out.header = std_msgs.msg.Heade()
+                out.header.stamp = rospy.Time.now()
+        pub.publish(out)
 
         # TODO maybe sort by accuracy
 
@@ -79,11 +84,8 @@ def callback(data):
         # sorted_keys_by_stability.sort(key=sortByStd)
         # print("Sorted by stab: ", sorted_keys_by_stability)
 
-    cv2.imshow("det", annotated)
-    cv2.waitKey(1)
-
-
 rospy.init_node("detector")
+# rospy.Subscriber("xtion/rgb/image_rect_color", Image, callback)
 rospy.Subscriber("xtion/rgb/image_raw", Image, callback)
 # model.track(, show=True)
 

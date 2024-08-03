@@ -13,9 +13,15 @@ find_package(catkin REQUIRED COMPONENTS
     message_generation
     actionlib
     control_msgs
+    image_geometry
+    message_filters
+    sensor_msgs
+    geometry_msgs
     roscpp
     rospy
 )
+
+
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -135,8 +141,8 @@ include_directories(
 
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
-## The recommended prefix ensures that target names across packages don't collide
-add_executable(tomato_vision_manager src/tomato_vision_manager.cpp)
+## The recommended prefix en/xtion/rgb/camera_infosures that target names across packages don't collide
+add_executable(tomato_vision_manager src/vision_node.cpp src/tomato_vision_manager.cpp src/tomato_vision_manager.h)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the

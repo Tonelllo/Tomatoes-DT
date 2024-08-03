@@ -1,221 +1,179 @@
 #include "ros/console.h"
 #include "ros/init.h"
-#include "ros/node_handle.h"
-#include "ros/service.h"
-#include "ros/service_client.h"
-#include "tomato_detection/BestPosRequest.h"
-#include <actionlib/client/simple_action_client.h>
-#include <control_msgs/FollowJointTrajectoryAction.h>
+#include "sensor_msgs/CameraInfo.h"
+#include "sensor_msgs/PointCloud2.h"
+#include <boost/bind/bind.hpp>
+#include <boost/smart_ptr/make_shared_array.hpp>
+#include <cstdint>
+#include <map>
 #include <ros/ros.h>
 #include <strings.h>
-#include <tomato_detection/BestPos.h>
+#include "tomato_vision_manager.h"
 
-typedef actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction>
-    head_control_client;
-typedef boost::shared_ptr<head_control_client> head_control_client_Ptr;
+static double deg2rad(double degrees)
+{
+  return degrees * (M_PI / 180);
+}
 
-static double deg2rad(double degrees) { return degrees * (M_PI / 180); }
+VisionManager::VisionManager(ros::NodeHandle& nh)
+{
+  m_head_goal_.trajectory.joint_names.push_back("head_1_joint");
+  m_head_goal_.trajectory.joint_names.push_back("head_2_joint");
 
-void createHeadClient(head_control_client_Ptr &actionClient) {
+  m_nh_ = nh;
+  m_best_pos_client_ = m_nh_.serviceClient<tomato_detection::BestPos>("tomato_counting/get_best_tilt");
+
+  m_pose_sub_.subscribe(m_nh_, "/tomato_detection/detected_tomatoes", 1);
+  m_camera_sub_.subscribe(m_nh_, "/xtion/depth_registered/camera_info", 1);
+  m_point_sub_.subscribe(m_nh_, "/xtion/depth_registered/points", 1);
+  m_sync_ = std::make_shared<message_filters::Synchronizer<Sync_policy_>>(10);
+  m_sync_->connectInput(m_pose_sub_, m_camera_sub_, m_point_sub_);
+  m_sync_->registerCallback(&VisionManager::computeDistances, this);
+}
+
+void VisionManager::createHeadClient()
+{
   ROS_INFO("Creating action client to head controller ...");
 
-  actionClient.reset(
-      new head_control_client("/head_controller/follow_joint_trajectory"));
+  m_head_client_.reset(new head_control_client("/head_controller/follow_joint_trajectory"));
 
   int iterations = 0, max_iterations = 3;
   // Wait for arm controller action server to come up
-  while (!actionClient->waitForServer(ros::Duration(2.0)) && ros::ok() &&
-         iterations < max_iterations) {
+  while (!m_head_client_->waitForServer(ros::Duration(2.0)) && ros::ok() && iterations < max_iterations)
+  {
     ROS_DEBUG("Waiting for the head_controller_action server to come up");
     ++iterations;
   }
 
   if (iterations == max_iterations)
-    throw std::runtime_error("Error in createHeadClient: head controller "
-                             "action server not available");
+    throw std::runtime_error(
+        "Error in createHeadClient: head controller "
+        "action server not available");
 }
 
-void look_up(control_msgs::FollowJointTrajectoryGoal &goal) {
+void VisionManager::lookUp()
+{
+  m_head_client_->cancelAllGoals();  // TODO not a good practice
   // Set the number of points in trajectory
-  goal.trajectory.points.resize(1);
+  m_head_goal_.trajectory.points.resize(1);
 
   int index = 0;
-  goal.trajectory.points[index].positions.resize(2);
-  goal.trajectory.points[index].positions[0] = 0.0;
-  goal.trajectory.points[index].positions[1] = deg2rad(20);
+  m_head_goal_.trajectory.points[index].positions.resize(2);
+  m_head_goal_.trajectory.points[index].positions[0] = 0.0;
+  m_head_goal_.trajectory.points[index].positions[1] = deg2rad(20);
 
   // Set the number of velocities in the array
-  goal.trajectory.points[index].velocities.resize(2);
+  m_head_goal_.trajectory.points[index].velocities.resize(2);
 
   // This sets the velocity at which the head will pass
   // through the waypoint
-  goal.trajectory.points[index].velocities[0] = 0.0;
-  goal.trajectory.points[index].velocities[1] = 0.0;
+  m_head_goal_.trajectory.points[index].velocities[0] = 0.0;
+  m_head_goal_.trajectory.points[index].velocities[1] = 0.0;
 
-  goal.trajectory.points[index].time_from_start = ros::Duration(5.0);
+  m_head_goal_.trajectory.points[index].time_from_start = ros::Duration(5.0);
+  m_head_client_->sendGoal(m_head_goal_);
+  ros::Duration(1).sleep();
 }
 
-void scan(control_msgs::FollowJointTrajectoryGoal &goal) {
-  goal.trajectory.points.resize(1);
+void VisionManager::scan()
+{
+  m_head_client_->cancelAllGoals();  // TODO not a good practice
+  m_head_goal_.trajectory.points.resize(1);
 
   int index = 0;
-  goal.trajectory.points[index].positions.resize(2);
-  goal.trajectory.points[index].positions[0] = 0.0;
-  goal.trajectory.points[index].positions[1] = deg2rad(-30.0);
+  m_head_goal_.trajectory.points[index].positions.resize(2);
+  m_head_goal_.trajectory.points[index].positions[0] = 0.0;
+  m_head_goal_.trajectory.points[index].positions[1] = deg2rad(-30.0);
 
   // Set the number of velocities in the array
-  goal.trajectory.points[index].velocities.resize(2);
+  m_head_goal_.trajectory.points[index].velocities.resize(2);
   // This sets the velocity at which the head will pass
   // through the waypoint
-  goal.trajectory.points[index].velocities[0] = 0.0;
-  goal.trajectory.points[index].velocities[1] = 0.0;
+  m_head_goal_.trajectory.points[index].velocities[0] = 0.0;
+  m_head_goal_.trajectory.points[index].velocities[1] = 0.0;
 
-  goal.trajectory.points[index].time_from_start = ros::Duration(15.0);
+  m_head_goal_.trajectory.points[index].time_from_start = ros::Duration(10.0);
+  m_head_client_->sendGoal(m_head_goal_);
+  ros::Duration(1).sleep();
 }
 
-void lookAtBestPosition(control_msgs::FollowJointTrajectoryGoal &goal,
-                        float bestPosition) {
-  goal.trajectory.points.resize(1);
+void VisionManager::lookAtBestPosition()
+{
+  m_head_client_->cancelAllGoals();  // TODO not a good practice
+  m_head_goal_.trajectory.points.resize(1);
 
   int index = 0;
-  goal.trajectory.points[index].positions.resize(2);
-  goal.trajectory.points[index].positions[0] = 0.0;
-  goal.trajectory.points[index].positions[1] = bestPosition;
+  m_head_goal_.trajectory.points[index].positions.resize(2);
+  m_head_goal_.trajectory.points[index].positions[0] = 0.0;
+  m_head_goal_.trajectory.points[index].positions[1] = m_best_position_;
 
   // Set the number of velocities in the array
-  goal.trajectory.points[index].velocities.resize(2);
+  m_head_goal_.trajectory.points[index].velocities.resize(2);
   // This sets the velocity at which the head will pass
   // through the waypoint
-  goal.trajectory.points[index].velocities[0] = 0.0;
-  goal.trajectory.points[index].velocities[1] = 0.0;
+  m_head_goal_.trajectory.points[index].velocities[0] = 0.0;
+  m_head_goal_.trajectory.points[index].velocities[1] = 0.0;
 
-  goal.trajectory.points[index].time_from_start = ros::Duration(20.0);
+  m_head_goal_.trajectory.points[index].time_from_start = ros::Duration(5.0);
+  m_head_client_->sendGoal(m_head_goal_);
+  ros::Duration(1).sleep();
 }
 
-void waypoints_head_goal(control_msgs::FollowJointTrajectoryGoal &goal) {
-  goal.trajectory.joint_names.push_back("head_1_joint");
-  goal.trajectory.joint_names.push_back("head_2_joint");
-
-  // Set the number of points in trajectory
-  goal.trajectory.points.resize(3);
-
-  int index = 0;
-  goal.trajectory.points[index].positions.resize(2);
-  goal.trajectory.points[index].positions[0] = 0.0;
-  goal.trajectory.points[index].positions[1] = deg2rad(20);
-
-  // Set the number of velocities in the array
-  goal.trajectory.points[index].velocities.resize(2);
-
-  // This sets the velocity at which the head will pass
-  // through the waypoint
-  goal.trajectory.points[index].velocities[0] = 0.0;
-  goal.trajectory.points[index].velocities[1] = 0.0;
-
-  goal.trajectory.points[index].time_from_start = ros::Duration(5.0);
-
-  index++;
-
-  goal.trajectory.points[index].positions.resize(2);
-  goal.trajectory.points[index].positions[0] = 0.0;
-  goal.trajectory.points[index].positions[1] = deg2rad(-30.0);
-
-  // Set the number of velocities in the array
-  goal.trajectory.points[index].velocities.resize(2);
-  // This sets the velocity at which the head will pass
-  // through the waypoint
-  goal.trajectory.points[index].velocities[0] = 0.0;
-  goal.trajectory.points[index].velocities[1] = 0.0;
-
-  goal.trajectory.points[index].time_from_start = ros::Duration(15.0);
-
-  index++;
-
-  goal.trajectory.points[index].positions.resize(2);
-  goal.trajectory.points[index].positions[0] = 0.0;
-  goal.trajectory.points[index].positions[1] = deg2rad(0.0);
-
-  // Set the number of velocities in the array
-  goal.trajectory.points[index].velocities.resize(2);
-  // This sets the velocity at which the head will pass
-  // through the waypoint
-  goal.trajectory.points[index].velocities[0] = 0.0;
-  goal.trajectory.points[index].velocities[1] = 0.0;
-
-  goal.trajectory.points[index].time_from_start = ros::Duration(20.0);
+bool VisionManager::isGoalReached()
+{
+  return m_head_client_->getState().isDone();
 }
 
-int main(int argc, char *argv[]) {
-  ros::init(argc, argv, "vision_manager");
+void VisionManager::startYOLOScan()
+{
+  m_best_pos_msg_.request.activate = true;
+  m_best_pos_client_.call(m_best_pos_msg_);
+}
 
-  ros::NodeHandle nh;
-  if (!ros::Time::waitForValid(ros::WallDuration(
-          10.0))) // NOTE: Important when using simulated clock
+// TODO check for ::constPtr
+void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::CameraInfo info,
+                                     sensor_msgs::PointCloud2 pc)
+{
+  ROS_INFO("VVVVVVVVVVVVVVVVVVVVVVVV");
+  for (geometry_msgs::Pose pose : msg.poses)
   {
-    ROS_FATAL("Timed-out waiting for valid time.");
-    return EXIT_FAILURE;
+    // ROS_INFO("%f %f %f", pose.position.x, pose.position.y, pose.position.z);
+    // TODO It's created each iteration
+    std::map<std::string, int> vals;
+    int x = round(pose.position.x);
+    int y = round(pose.position.y);
+
+
+    for (sensor_msgs::PointField pf : pc.fields)
+    {
+      // ROS_INFO("%s, %d, %d, %d", pf.name.c_str(), pf.offset, pf.datatype, pf.count);
+      vals.insert({ pf.name.c_str(), pf.offset });
+    }
+
+    uint32_t start = pc.point_step * x + y * pc.row_step;
+    // for(size_t index = start; index < start + pc.point_step; index++){
+    //   ROS_INFO("%d", pc.data[index]);
+    // }
+
+    ROS_INFO("x: %d, y: %d, z: %d", pc.data[start + vals["x"]], pc.data[start + vals["y"]], pc.data[start + vals["z"]]);
   }
+  ROS_INFO("########################");
+}
 
-  ros::service::waitForService("tomato_counting/get_best_tilt");
-  ros::ServiceClient bestPosClient =
-      nh.serviceClient<tomato_detection::BestPos>(
-          "tomato_counting/get_best_tilt");
+void VisionManager::getBestPosition()
+{
+  m_best_pos_msg_.request.activate = false;
+  m_best_pos_client_.call(m_best_pos_msg_);
 
-  head_control_client_Ptr HeadClient;
-  createHeadClient(HeadClient);
-  HeadClient->cancelAllGoals();
-  
-  control_msgs::FollowJointTrajectoryGoal head_goal;
-  head_goal.trajectory.joint_names.push_back("head_1_joint");
-  head_goal.trajectory.joint_names.push_back("head_2_joint");
-  
-  look_up(head_goal);
-  head_goal.trajectory.header.stamp = ros::Time::now() + ros::Duration(1.0);
-  HeadClient->sendGoal(head_goal);
-
-  while (!(HeadClient->getState().isDone()) && ros::ok()) {
-    ros::Duration(1).sleep(); // sleep for four seconds
+  if (m_best_pos_msg_.response.is_valid)
+  {
+    m_best_position_ = m_best_pos_msg_.response.bestpos;
   }
-
-  tomato_detection::BestPos bp;
-  bp.request.activate = true;
-  bestPosClient.call(bp);
-
-  HeadClient->cancelAllGoals();
-  scan(head_goal);
-  HeadClient->sendGoal(head_goal);
-  head_goal.trajectory.header.stamp = ros::Time::now() + ros::Duration(1.0);
-  while (!(HeadClient->getState().isDone()) && ros::ok()) {
-    ros::Duration(1).sleep(); // sleep for four seconds
-  }
-
-  float bestPosition = 0;
-
-  bp.request.activate = false;
-  bestPosClient.call(bp);
-  if (bp.response.is_valid) {
-    bestPosition = bp.response.bestpos;
-  } else {
+  else
+  {
     ROS_ERROR("INVALID RESPONSE");
     exit(1);
   }
 
-  ROS_INFO("Best position: %f", bestPosition);
-  HeadClient->cancelAllGoals();
-  lookAtBestPosition(head_goal, bestPosition);
-  HeadClient->sendGoal(head_goal);
-  head_goal.trajectory.header.stamp = ros::Time::now() + ros::Duration(1.0);
-  while (!(HeadClient->getState().isDone()) && ros::ok()) {
-    ros::Duration(1).sleep(); // sleep for four seconds
-  }
-  // waypoints_head_goal(head_goal);
-  //
-  // // The action will start 1 second from now
-  // // head_goal.trajectory.header.stamp = ros::Time::now() + ros::Duration(1.0);
-  //  HeadClient->sendGoal(head_goal);
-  //  while (!(HeadClient->getState().isDone()) && ros::ok()) {
-  //    ros::Duration(4).sleep(); // sleep for four seconds
-  //  }
-
-  return 0;
+  ROS_INFO("Best position: %f", m_best_position_);
 }
