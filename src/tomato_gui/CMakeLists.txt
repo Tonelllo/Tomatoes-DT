@@ -13,6 +13,14 @@ set(CMAKE_PROJECT_NAME tomato_guiApp )
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
+include(FetchContent)
+FetchContent_Declare(
+    tomlplusplus
+    GIT_REPOSITORY https://github.com/marzer/tomlplusplus.git
+    GIT_TAG        v3.4.0
+)
+FetchContent_MakeAvailable(tomlplusplus)
+
 find_package(Qt6 6.2 REQUIRED COMPONENTS Core Gui Qml Quick Multimedia)
 find_package(catkin REQUIRED COMPONENTS
     roscpp
@@ -53,6 +61,7 @@ target_link_libraries(tomato_guiApp PRIVATE
     PUBLIC
     ${catkin_LIBRARIES}
     ${OpenCV_LIBRARIES}
+    tomlplusplus::tomlplusplus
 )
 
 set(QT_QML_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/qml)

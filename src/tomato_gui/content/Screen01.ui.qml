@@ -10,11 +10,13 @@ import QtQuick.Controls 6.2
 import tomato_gui
 
 Rectangle{
-    width: 1200
-    height: 700
+    id: mainWindow
+    width: Constants.width
+    height: Constants.height
+
     SwipeView {
         id: mainSwipe
-        anchors.fill: parent
+        anchors.fill: mainWindow
 
         CameraPane {
             id: cp

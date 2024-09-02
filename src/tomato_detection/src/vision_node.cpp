@@ -1,4 +1,7 @@
 #include <ros/ros.h>
+#include <boost/variant/detail/visitation_impl.hpp>
+#include "ros/init.h"
+#include "ros/service.h"
 #include "tomato_vision_manager.h"
 
 int main(int argc, char* argv[])
@@ -6,6 +9,7 @@ int main(int argc, char* argv[])
   ros::init(argc, argv, "vision_manager");
   ros::NodeHandle nh;
   VisionManager vm(nh);
+
 
   if (!ros::Time::waitForValid(ros::WallDuration(10.0)))  // NOTE: Important when using simulated clock
   {
@@ -15,26 +19,23 @@ int main(int argc, char* argv[])
 
   ros::service::waitForService("tomato_counting/get_best_tilt");
 
-
   vm.createHeadClient();
 
-
-
   ros::Rate rate(10);
-  enum states
+  enum class states
   {
     LOOK_UP,
     SCAN,
     GOTO_BEST,
     COMPUTE_DISTANCES
   };
-  int state = COMPUTE_DISTANCES;
+  states state = states::COMPUTE_DISTANCES;
   bool once = true;
   while (ros::ok())
   {
     switch (state)
     {
-      case LOOK_UP:
+      case states::LOOK_UP:
         if (once)
         {
           ROS_INFO("Looking up");
@@ -45,11 +46,11 @@ int main(int argc, char* argv[])
 
         if (vm.isGoalReached())
         {
-          state = SCAN;
+          state = states::SCAN;
           once = true;
         }
         break;
-      case SCAN:
+      case states::SCAN:
         if (once)
         {
           ROS_INFO("Scanning");
@@ -62,12 +63,12 @@ int main(int argc, char* argv[])
 
         if (vm.isGoalReached())
         {
-          state = GOTO_BEST;
+          state = states::GOTO_BEST;
           once = true;
         }
         break;
 
-      case GOTO_BEST:
+      case states::GOTO_BEST:
         if (once)
         {
           ROS_INFO("Going to best position");
@@ -78,11 +79,11 @@ int main(int argc, char* argv[])
 
         if (vm.isGoalReached())
         {
-          state = COMPUTE_DISTANCES;
+          state = states::COMPUTE_DISTANCES;
           once = true;
         }
         break;
-      case COMPUTE_DISTANCES:
+      case states::COMPUTE_DISTANCES:
         if (once)
         {
           // ROS_INFO("Compute distances");

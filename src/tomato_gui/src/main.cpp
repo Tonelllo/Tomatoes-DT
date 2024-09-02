@@ -1,5 +1,6 @@
 // Copyright (C) 2021 The Qt Company Ltd.
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
+// catkin_make -C ../../ && cp ../../build/compile_commands.json ../../.qtc_clangd/compile_commands.json
 
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -21,7 +22,6 @@ int main(int argc, char *argv[])
     QGuiApplication app(argc, argv);
 
     QQmlApplicationEngine engine;
-
     ImageProvider *imageProvider = new ImageProvider(nh, &app);
     qmlRegisterSingletonInstance("Tonelllo.ImageProvider", 1, 0, "ImageProvider", imageProvider);
     const QUrl url(u"qrc:/qt/qml/Main/main.qml"_qs);
