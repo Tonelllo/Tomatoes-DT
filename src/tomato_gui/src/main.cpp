@@ -9,6 +9,7 @@
 #include "imageprovider.h"
 #include "import_qml_components_plugins.h"
 #include "import_qml_plugins.h"
+#include "processcaller.h"
 #include <ros/ros.h>
 
 int main(int argc, char *argv[])
@@ -20,10 +21,11 @@ int main(int argc, char *argv[])
 
     set_qt_environment();
     QGuiApplication app(argc, argv);
-
     QQmlApplicationEngine engine;
     ImageProvider *imageProvider = new ImageProvider(nh, &app);
+    ProcessCaller *processCaller = new ProcessCaller();
     qmlRegisterSingletonInstance("Tonelllo.ImageProvider", 1, 0, "ImageProvider", imageProvider);
+    qmlRegisterSingletonInstance("Tonelllo.ProcessCaller", 1, 0, "ProcessCaller", processCaller);
     const QUrl url(u"qrc:/qt/qml/Main/main.qml"_qs);
     QObject::connect(
         &engine,
@@ -43,6 +45,7 @@ int main(int argc, char *argv[])
     if (engine.rootObjects().isEmpty()) {
         return -1;
     }
+
 
     return app.exec();
 }

@@ -44,7 +44,10 @@ include_directories(
 qt_add_executable(tomato_guiApp
     src/main.cpp
     src/imageprovider.h
-    src/imageprovider.cpp)
+    src/imageprovider.cpp
+    src/processcaller.h
+    src/processcaller.cpp
+)
 
 qt_add_resources(tomato_guiApp "configuration"
     PREFIX "/"

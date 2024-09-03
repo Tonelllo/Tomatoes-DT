@@ -5,8 +5,8 @@ import QtQuick 6.2
 import tomato_gui
 
 Window {
-    width: mainScreen.width
-    height: mainScreen.height
+    width: Constants.width
+    height: Constants.height
 
     visible: true
     title: "tomato_gui"

@@ -6,17 +6,14 @@
   Check out https://doc.qt.io/qtcreator/creator-quick-ui-forms.html for details on .ui.qml files.
 */
 import QtQuick 2.15
-import QtQuick.Controls 2.15
+import QtQuick.Controls.Universal 2.15
 import QtQuick.Layouts
 import QtMultimedia
+import tomato_gui
 
 import Tonelllo.ImageProvider 1.0
-
 Rectangle {
     id: cameraPane
-    width: 1200
-    height: 700
-
     color: Universal.background
 
     property alias button: button
@@ -59,8 +56,7 @@ Rectangle {
             Layout.margins: 30
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.preferredHeight: 200
-            Layout.rightMargin: 300
+            Layout.preferredHeight: 300
             TabBar {
                 id: filteredBar
                 Layout.alignment: Qt.AlignTop | Qt.AlignRight
@@ -69,7 +65,7 @@ Rectangle {
                     text: qsTr("Mask")
                 }
                 TabButton {
-                    text: qsTr("CirceFilter")
+                    text: qsTr("CircleFilter")
                 }
                 TabButton {
                     text: qsTr("Final")
@@ -77,6 +73,7 @@ Rectangle {
             }
             RowLayout {
                 id: upLayout
+
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.preferredHeight: 100
@@ -106,10 +103,13 @@ Rectangle {
         GridLayout {
             Layout.fillHeight: true
             Layout.fillWidth: true
+            Layout.preferredHeight: 100
             columns: 2
             Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
                 Layout.preferredHeight: 100
-                Layout.preferredWidth: 1000
+                Layout.preferredWidth: 500
                 Text {
                     id: hue_min_text
                     anchors.left: parent.left
@@ -134,8 +134,11 @@ Rectangle {
                 }
             }
             Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
                 Layout.preferredHeight: 100
-                Layout.preferredWidth: 1000
+                Layout.preferredWidth: 500
+
                 Text {
                     id: hue_max_text
                     text: "Hue max"
@@ -158,8 +161,10 @@ Rectangle {
                 }
             }
             Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
                 Layout.preferredHeight: 100
-                Layout.preferredWidth: 1000
+                Layout.preferredWidth: 500
                 Text {
                     id: sat_min_text
                     text: "Sat min"
@@ -182,8 +187,10 @@ Rectangle {
                 }
             }
             Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
                 Layout.preferredHeight: 100
-                Layout.preferredWidth: 1000
+                Layout.preferredWidth: 500
                 Text {
                     id: sat_max_text
                     text: "Sat max"
@@ -206,8 +213,10 @@ Rectangle {
                 }
             }
             Item {
+                Layout.fillHeight: true
                 Layout.preferredHeight: 100
-                Layout.preferredWidth: 1000
+                Layout.preferredWidth: 500
+                Layout.fillWidth: true
                 Text {
                     id: val_min_text
                     text: "Val min"
@@ -230,8 +239,10 @@ Rectangle {
                 }
             }
             Item {
+                Layout.fillHeight: true
                 Layout.preferredHeight: 100
-                Layout.preferredWidth: 1000
+                Layout.preferredWidth: 500
+                Layout.fillWidth: true
                 Text {
                     id: val_max_text
                     text: "Val max"
@@ -254,8 +265,10 @@ Rectangle {
                 }
             }
             Item {
+                Layout.fillHeight: true
                 Layout.preferredHeight: 100
-                Layout.preferredWidth: 1000
+                Layout.preferredWidth: 500
+                Layout.fillWidth: true
                 Text {
                     id: rad_min_text
                     text: "Radius min"
@@ -278,8 +291,10 @@ Rectangle {
                 }
             }
             Item {
+                Layout.fillHeight: true
                 Layout.preferredHeight: 100
-                Layout.preferredWidth: 1000
+                Layout.preferredWidth: 500
+                Layout.fillWidth: true
                 Text {
                     id: rad_max_text
                     text: "Rad max"
@@ -301,8 +316,10 @@ Rectangle {
                 }
             }
             RowLayout {
+                Layout.fillHeight: true
                 Layout.preferredHeight: 100
-                Layout.preferredWidth: 1000
+                Layout.preferredWidth: 500
+                Layout.fillWidth: true
                 id: saveRestoreRow
                 Button {
                     id: saver
