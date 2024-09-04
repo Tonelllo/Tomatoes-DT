@@ -17,6 +17,7 @@ class ImageProvider : public QVideoSink
   Q_PROPERTY(QVideoSink* origSink READ origSink WRITE setOrigSink NOTIFY origSinkChanged FINAL)
   Q_PROPERTY(QVideoSink* maskedSink READ maskedSink WRITE setMaskedSink NOTIFY maskedSinkChanged FINAL)
   Q_PROPERTY(QVideoSink* radSink READ radSink WRITE setRadSink NOTIFY radSinkChanged FINAL)
+  Q_PROPERTY(QVideoSink* yoloSink READ yoloSink WRITE setYoloSink NOTIFY yoloSinkChanged FINAL)
   Q_PROPERTY(uint hue_min READ hue_min WRITE setHue_min NOTIFY hue_minChanged FINAL)
   Q_PROPERTY(uint hue_max READ hue_max WRITE setHue_max NOTIFY hue_maxChanged FINAL)
   Q_PROPERTY(uint sat_min READ sat_min WRITE setSat_min NOTIFY sat_minChanged FINAL)
@@ -68,6 +69,9 @@ public:
   QString savePath() const;
   void setSavePath(const QString &newSavePath);
 
+  QVideoSink *yoloSink() const;
+  void setYoloSink(QVideoSink *newYoloSink);
+
 signals:
   void origSinkChanged();
 
@@ -93,13 +97,20 @@ signals:
 
   void savePathChanged();
 
+  void yoloSinkChanged();
+
 private:
   const uint ERROR_VAL = 99999;
   image_transport::ImageTransport m_image_transport;
   image_transport::Subscriber m_image_sub;
+
+  image_transport::ImageTransport m_yolo_transport;
+  image_transport::Subscriber m_yolo_sub;
+
   QVideoFrame* m_maskedImage = nullptr;
   cv::Mat colorSegmentation(cv::Mat, cv::Mat);
   void frameCallback(const sensor_msgs::ImageConstPtr& img);
+  void yoloCallback(const sensor_msgs::ImageConstPtr& img);
   void setFrame(QVideoSink*, cv::Mat);
   QVideoSink* m_origSink = nullptr;
 
@@ -124,6 +135,8 @@ private:
   QVideoSink *m_radSink = nullptr;
 
   QString m_savePath = "./";
+
+  QVideoSink *m_yoloSink = nullptr;
 
 public slots:
   void setOrigSink(QVideoSink*);

@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import rospy
 from cv_bridge import CvBridge
 import math
@@ -6,12 +8,33 @@ from sensor_msgs.msg import CameraInfo
 from control_msgs.msg import JointTrajectoryControllerState
 from tomato_detection.srv import BestPos
 from ultralytics import YOLO
+import rospkg
+from enum import Enum
 
+
+class Model_used(Enum):
+    TRACKING = 1
+    DETECTION = 2
+
+
+mode = Model_used.TRACKING
+
+"""
+Description:
+    This script is used to calclulate the best position of the head of the robot,
+    which means the position where there are more tomatoes and they are closest
+    to the center. The heart of the calculation of the quality of the position
+    is:
+    113)  goodness_index = position_index + window_count * 5
+    where 5 is a magic number.
+"""
 
 MAX_HISTORY = 30
-
 bridge = CvBridge()
-model = YOLO("best.pt")
+
+rospack = rospkg.RosPack()
+node_path = rospack.get_path("tomato_detection") + "/models/"
+model = YOLO(node_path + "tomato_80prec_70rec.pt")
 # pub = rospy.Publisher("detection/current_count", Int8, queue_size=5)
 count = 0
 history = []
@@ -22,6 +45,8 @@ image_subscriber = None
 best_tilt = 0
 
 max_goodness = 0
+
+print("STARTED")
 
 
 def getCenter(x, y, w, h):
@@ -34,24 +59,10 @@ def giveBestPosition(req):
     if req.activate:
         image_subscriber = rospy.Subscriber(
             "xtion/rgb/image_raw", Image, callback)
-        # image_subscriber = rospy.Subscriber(
-        #     "xtion/rgb/image_rect_color", Image, callback)
         head_subscriber = rospy.Subscriber("/head_controller/state",
                                            JointTrajectoryControllerState, positionGetter)
         return False, 0
     else:
-        # with open("numbers.txt", 'w') as f:
-        #     to_write = ",".join(map(str, number_y))
-        #     f.write(to_write)
-        # with open("val.txt", "w") as v:
-        #     to_write = ",".join(map(str, val_y))
-        #     v.write(to_write)
-        # with open("index.txt", "w") as v:
-        #     to_write = ",".join(map(str, goodn))
-        #     v.write(to_write)
-        # with open("pos.txt", "w") as v:
-        #     to_write = ",".join(map(str, posn))
-        #     v.write(to_write)
         image_subscriber.unregister()
         head_subscriber.unregister()
         return True, best_tilt
@@ -72,19 +83,16 @@ def getParams(data):
         camera_info.unregister()
 
 
-# number_x = []
-# number_y = []
-# goodn = []
-# posn = []
-# val_x = []
-# val_y = []
-# index = 0
-
-
 def callback(data):
     global count, position, camera_center, max_dist, max_goodness, best_tilt, head_tilt
     image = bridge.imgmsg_to_cv2(data)
-    result = model.track(image, persist=True, verbose=False, tracker="custom_botsort.yaml")
+
+    if mode == Model_used.TRACKING:
+        result = model.track(image, persist=True, verbose=False,
+                            tracker=node_path+"custom_botsort.yaml")
+    elif mode == Model_used.DETECTION:
+        result = model.predict(image, verbose=False)
+
     count = len(result[0].boxes)
     avg_position = [0, 0]
     for box in result[0].boxes.xywh.cpu():
@@ -118,25 +126,10 @@ def callback(data):
         if goodness_index >= max_goodness:
             max_goodness = goodness_index
             best_tilt = head_tilt
-        # global number_x, number_y, val_x, val_y, index, goodn, posn
-        # number_x.append(index)
-        # number_y.append(window_count)
-        #
-        # val_x.append(index)
-        # val_y.append(math.dist(window_pos, camera_center))
-        #
-        # goodn.append(goodness_index)
-        #
-        # posn.append(head_tilt)
-        # index += 1
-
-        # cv2.imshow("count", result[0].plot())
-        # cv2.waitKey(1)
 
 
-rospy.init_node("counter")
+rospy.init_node("counter_track")
 camera_info = rospy.Subscriber("/xtion/rgb/camera_info", CameraInfo, getParams)
 rospy.Service("tomato_counting/get_best_tilt", BestPos, giveBestPosition)
-# model.track(, show=True)
 
 rospy.spin()

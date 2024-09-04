@@ -29,7 +29,7 @@ int main(int argc, char* argv[])
     GOTO_BEST,
     COMPUTE_DISTANCES
   };
-  states state = states::COMPUTE_DISTANCES;
+  states state = states::LOOK_UP;
   bool once = true;
   while (ros::ok())
   {
@@ -80,6 +80,7 @@ int main(int argc, char* argv[])
         if (vm.isGoalReached())
         {
           state = states::COMPUTE_DISTANCES;
+          ROS_INFO("Compute distances");
           once = true;
         }
         break;

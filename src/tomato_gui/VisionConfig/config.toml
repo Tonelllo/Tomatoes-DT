@@ -3,8 +3,8 @@ max = 15
 min = 0
 
 [rad]
-max = 57
-min = 8
+max = 34
+min = 17
 
 [sat]
 max = 255

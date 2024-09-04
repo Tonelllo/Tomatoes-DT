@@ -37,6 +37,8 @@ void VisionManager::createHeadClient()
 
   m_head_client_.reset(new head_control_client("/head_controller/follow_joint_trajectory"));
 
+  ROS_INFO("Client created");
+
   int iterations = 0, max_iterations = 3;
   // Wait for arm controller action server to come up
   while (!m_head_client_->waitForServer(ros::Duration(2.0)) && ros::ok() && iterations < max_iterations)
@@ -134,10 +136,10 @@ void VisionManager::startYOLOScan()
 void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::CameraInfo info,
                                      sensor_msgs::PointCloud2 pc)
 {
-  ROS_INFO("VVVVVVVVVVVVVVVVVVVVVVVV");
+  //ROS_INFO("VVVVVVVVVVVVVVVVVVVVVVVV");
   for (geometry_msgs::Pose pose : msg.poses)
   {
-    // ROS_INFO("%f %f %f", pose.position.x, pose.position.y, pose.position.z);
+    // //ROS_INFO("%f %f %f", pose.position.x, pose.position.y, pose.position.z);
     // TODO It's created each iteration
     std::map<std::string, int> vals;
     int x = round(pose.position.x);
@@ -146,18 +148,18 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
 
     for (sensor_msgs::PointField pf : pc.fields)
     {
-      // ROS_INFO("%s, %d, %d, %d", pf.name.c_str(), pf.offset, pf.datatype, pf.count);
+      // //ROS_INFO("%s, %d, %d, %d", pf.name.c_str(), pf.offset, pf.datatype, pf.count);
       vals.insert({ pf.name.c_str(), pf.offset });
     }
 
     uint32_t start = pc.point_step * x + y * pc.row_step;
     // for(size_t index = start; index < start + pc.point_step; index++){
-    //   ROS_INFO("%d", pc.data[index]);
+    //   //ROS_INFO("%d", pc.data[index]);
     // }
 
-    ROS_INFO("x: %d, y: %d, z: %d", pc.data[start + vals["x"]], pc.data[start + vals["y"]], pc.data[start + vals["z"]]);
+    //ROS_INFO("x: %d, y: %d, z: %d", pc.data[start + vals["x"]], pc.data[start + vals["y"]], pc.data[start + vals["z"]]);
   }
-  ROS_INFO("########################");
+  //ROS_INFO("########################");
 }
 
 void VisionManager::getBestPosition()

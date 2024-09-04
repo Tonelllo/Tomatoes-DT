@@ -4,6 +4,7 @@
 #include <QDateTime>
 #include <cstdint>
 #include <cstdlib>
+#include <opencv2/core/mat.hpp>
 #include <opencv2/imgproc.hpp>
 #include <string>
 #include <toml++/toml.hpp>
@@ -12,10 +13,14 @@
 #include <qlogging.h>
 #include <ros/package.h>
 #include <QDir>
+#include "cv_bridge/cv_bridge.h"
+#include "sensor_msgs/Image.h"
+#include "sensor_msgs/image_encodings.h"
 
-ImageProvider::ImageProvider(ros::NodeHandle nh, QObject* parent) : m_image_transport(nh)
+ImageProvider::ImageProvider(ros::NodeHandle nh, QObject* parent) : m_image_transport(nh), m_yolo_transport(nh)
 {
   m_image_sub = m_image_transport.subscribe("xtion/rgb/image_raw", 1, &ImageProvider::frameCallback, this);
+  m_yolo_sub = m_image_transport.subscribe("tomato_detection/detection_result", 1, &ImageProvider::yoloCallback, this);
   QString modulePath = QString::fromStdString(ros::package::getPath("tomato_gui"));
   if (!QDir(modulePath + "/VisionConfig").exists())
   {
@@ -57,6 +62,17 @@ void ImageProvider::setFrame(QVideoSink* sink, cv::Mat image)
   }
 }
 
+void ImageProvider::yoloCallback(const sensor_msgs::ImageConstPtr& img)
+{
+  cv_bridge::CvImagePtr cvPtr;
+  cv::Mat cnvImg, qmlImg;
+  cvPtr = cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::BGR8);
+  cvPtr->image.copyTo(cnvImg);
+  cv::cvtColor(cnvImg, qmlImg, cv::COLOR_BGR2RGBA);
+
+  setFrame(m_yoloSink, qmlImg);
+}
+
 void ImageProvider::frameCallback(const sensor_msgs::ImageConstPtr& img)
 {
   // TODO Continuous stream
@@ -80,80 +96,94 @@ void ImageProvider::frameCallback(const sensor_msgs::ImageConstPtr& img)
   setFrame(m_radSink, circled_conv);
 }
 
-void ImageProvider::saveSettings(){
-  auto toSave = toml::table
-  {
-  {"hue", toml::table{
-        {"min", m_hue_min},
-        {"max", m_hue_max},}},
-  {"sat", toml::table{
-        {"min", m_sat_min},
-        {"max", m_sat_max},}},
-  {"val", toml::table{
-        {"min", m_val_min},
-        {"max", m_val_max},}},
-  {"rad", toml::table{
-        {"min", m_rad_min},
-        {"max", m_rad_max},}}
-  };
+void ImageProvider::saveSettings()
+{
+  auto toSave = toml::table{ { "hue",
+                               toml::table{
+                                   { "min", m_hue_min },
+                                   { "max", m_hue_max },
+                               } },
+                             { "sat",
+                               toml::table{
+                                   { "min", m_sat_min },
+                                   { "max", m_sat_max },
+                               } },
+                             { "val",
+                               toml::table{
+                                   { "min", m_val_min },
+                                   { "max", m_val_max },
+                               } },
+                             { "rad", toml::table{
+                                          { "min", m_rad_min },
+                                          { "max", m_rad_max },
+                                      } } };
   std::ofstream outFile((m_savePath).toStdString());
   outFile << toSave;
 }
 
-void ImageProvider::restoreSettings(){
+void ImageProvider::restoreSettings()
+{
   toml::table toRestore = toml::parse_file(m_savePath.toStdString());
 
   uint hueMin = toRestore["hue"]["min"].value_or(ERROR_VAL);
-  if(hueMin == ERROR_VAL){
+  if (hueMin == ERROR_VAL)
+  {
     qCritical() << "Hue not read correctly";
     exit(EXIT_FAILURE);
   }
   setHue_min(hueMin);
 
   uint hueMax = toRestore["hue"]["max"].value_or(ERROR_VAL);
-  if(hueMax == ERROR_VAL){
+  if (hueMax == ERROR_VAL)
+  {
     qCritical() << "Hue not read correctly";
     exit(EXIT_FAILURE);
   }
   setHue_max(hueMax);
 
   uint satMin = toRestore["sat"]["min"].value_or(ERROR_VAL);
-  if(satMin == ERROR_VAL){
+  if (satMin == ERROR_VAL)
+  {
     qCritical() << "Sat not read correctly";
     exit(EXIT_FAILURE);
   }
   setSat_min(satMin);
 
   uint satMax = toRestore["sat"]["max"].value_or(ERROR_VAL);
-  if(satMax == ERROR_VAL){
+  if (satMax == ERROR_VAL)
+  {
     qCritical() << "Sat not read correctly";
     exit(EXIT_FAILURE);
   }
   setSat_max(satMax);
 
   uint valMin = toRestore["val"]["min"].value_or(ERROR_VAL);
-  if(valMin == ERROR_VAL){
+  if (valMin == ERROR_VAL)
+  {
     qCritical() << "Val not read correctly";
     exit(EXIT_FAILURE);
   }
   setVal_min(valMin);
 
   uint valMax = toRestore["val"]["max"].value_or(ERROR_VAL);
-  if(valMax == ERROR_VAL){
+  if (valMax == ERROR_VAL)
+  {
     qCritical() << "Val not read correctly";
     exit(EXIT_FAILURE);
   }
   setVal_max(valMax);
 
   uint radMin = toRestore["rad"]["min"].value_or(ERROR_VAL);
-  if(radMin == ERROR_VAL){
+  if (radMin == ERROR_VAL)
+  {
     qCritical() << "Rad not read correctly";
     exit(EXIT_FAILURE);
   }
   setRad_min(radMin);
 
   uint radMax = toRestore["rad"]["max"].value_or(ERROR_VAL);
-  if(radMax == ERROR_VAL){
+  if (radMax == ERROR_VAL)
+  {
     qCritical() << "Rad not read correctly";
     exit(EXIT_FAILURE);
   }
@@ -310,12 +340,12 @@ void ImageProvider::setRad_max(uint newRad_max)
   emit rad_maxChanged();
 }
 
-QVideoSink *ImageProvider::radSink() const
+QVideoSink* ImageProvider::radSink() const
 {
   return m_radSink;
 }
 
-void ImageProvider::setRadSink(QVideoSink *newRadSink)
+void ImageProvider::setRadSink(QVideoSink* newRadSink)
 {
   if (m_radSink == newRadSink)
     return;
@@ -328,10 +358,23 @@ QString ImageProvider::savePath() const
   return m_savePath;
 }
 
-void ImageProvider::setSavePath(const QString &newSavePath)
+void ImageProvider::setSavePath(const QString& newSavePath)
 {
   if (m_savePath == newSavePath)
     return;
   m_savePath = newSavePath;
   emit savePathChanged();
+}
+
+QVideoSink *ImageProvider::yoloSink() const
+{
+  return m_yoloSink;
+}
+
+void ImageProvider::setYoloSink(QVideoSink *newYoloSink)
+{
+  if (m_yoloSink == newYoloSink)
+    return;
+  m_yoloSink = newYoloSink;
+  emit yoloSinkChanged();
 }

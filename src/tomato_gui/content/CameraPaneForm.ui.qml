@@ -10,8 +10,8 @@ import QtQuick.Controls.Universal 2.15
 import QtQuick.Layouts
 import QtMultimedia
 import tomato_gui
-
 import Tonelllo.ImageProvider 1.0
+
 Rectangle {
     id: cameraPane
     color: Universal.background
@@ -56,7 +56,7 @@ Rectangle {
             Layout.margins: 30
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.preferredHeight: 300
+            Layout.preferredHeight: 100
             TabBar {
                 id: filteredBar
                 Layout.alignment: Qt.AlignTop | Qt.AlignRight

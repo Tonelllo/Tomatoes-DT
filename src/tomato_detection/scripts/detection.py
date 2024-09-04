@@ -1,16 +1,35 @@
+#!/usr/bin/env python
+
 import rospy
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseArray
 from geometry_msgs.msg import Pose
+from sensor_msgs.msg import Image
 from ultralytics import YOLO
 import numpy as np
+import rospkg
+import copy
+import cv2
+
+"""
+Description:
+    This script is responsible for the detection of the tomatoes and their
+    bounding boxes.
+"""
 
 bridge = CvBridge()
-model = YOLO("best.pt")
+rospack = rospkg.RosPack()
+node_path = rospack.get_path("tomato_detection") + "/models/"
+model = YOLO(node_path + "tomato_80prec_70rec.pt")
 tomatoes = {}
-pub = rospy.Publisher("tomato_detection/detected_tomatoes", PoseArray, queue_size=5)
+pub = rospy.Publisher("tomato_detection/detected_tomatoes",
+                      PoseArray, queue_size=5)
+imgPublisher = rospy.Publisher(
+    "tomato_detection/detection_result", Image, queue_size=1)
 classes = ['RIPE', 'HALF', 'UNRIPE']
+
+print("STARTED")
 
 MAX_HISTORY = 30
 
@@ -19,18 +38,38 @@ def getCenter(x, y, w, h):
     return ((x+w) / 2, (y+h) / 2)
 
 
-# def sortByStd(x):
-#     print(np.std(tomatoes[x], axis=0))
-#     return sum(np.std(tomatoes[x], axis=0))
+def publishTrackingResult(img):
+    out_img = bridge.cv2_to_imgmsg(img, encoding="bgr8")
+    imgPublisher.publish(out_img)
+
 
 def callback(data):
     image = bridge.imgmsg_to_cv2(data, desired_encoding="bgr8")
-    result = model.track(image, persist=True, verbose=False, tracker="custom_botsort.yaml")
+    result = model.track(image, persist=True, verbose=False,
+                         tracker=node_path + "custom_botsort.yaml")
     boxes = result[0].boxes.xywh.cpu()
 
-    annotated = result[0].plot()
+    """
+    0 -> 'fully_ripened'
+    1 -> 'half_ripened'
+    2 -> 'green'
+    """
+
+    # wanted_result = copy.deepcopy(result[0])
+    # wanted_result.boxes = [
+    #     box for box in result[0].boxes if box.cls in [0, 1]]
+
+    # out = []
+    # for box in wanted_result.boxes:
+    #     out.append(box.cls)
+    # print(out)
+
+    # publishTrackingResult(wanted_result.plot())
+    # TODO Why does it keep displaying all the bounding boxes?
+    publishTrackingResult(result[0].plot())
 
     if result[0].boxes.id is not None:
+        publishTrackingResult(result[0].plot())
         track_ids = result[0].boxes.id.int().cpu().tolist()
         labels = result[0].boxes.cls.cpu()
 
@@ -71,7 +110,7 @@ def callback(data):
                 elem.position.y = avg[1]
                 elem.position.z = -1
                 out.poses.append(elem)
-                # out.header = std_msgs.msg.Heade()
+                # out.header = sensor_msgs.msg.Header()
                 out.header.stamp = rospy.Time.now()
         pub.publish(out)
 
@@ -83,6 +122,7 @@ def callback(data):
         # sorted_keys_by_stability = list(tomatoes.keys())
         # sorted_keys_by_stability.sort(key=sortByStd)
         # print("Sorted by stab: ", sorted_keys_by_stability)
+
 
 rospy.init_node("detector")
 # rospy.Subscriber("xtion/rgb/image_rect_color", Image, callback)

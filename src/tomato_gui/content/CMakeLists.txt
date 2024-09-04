@@ -13,6 +13,8 @@ qt6_add_qml_module(content
         CameraPaneForm.ui.qml
         ControlPane.qml
         ControlPaneForm.ui.qml
+        YoloPane.qml
+        YoloPaneForm.ui.qml
     RESOURCES
         fonts/fonts.txt
 )

@@ -23,7 +23,10 @@ Rectangle {
             // anchors.fill: parent causes bug with QT
         }
         CameraPane {
-            id: cp
+            id: cameraPane
+        }
+        YoloPane {
+            id: yoloPane
         }
     }
 }

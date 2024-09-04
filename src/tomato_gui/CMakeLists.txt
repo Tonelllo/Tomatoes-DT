@@ -21,7 +21,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(tomlplusplus)
 
-find_package(Qt6 6.2 REQUIRED COMPONENTS Core Gui Qml Quick Multimedia)
+find_package(Qt6 6.2 REQUIRED COMPONENTS Core Gui Qml Quick Multimedia DataVisualization)
 find_package(catkin REQUIRED COMPONENTS
     roscpp
     image_transport
@@ -61,6 +61,7 @@ target_link_libraries(tomato_guiApp PRIVATE
     Qt6::Qml
     Qt6::Quick
     Qt6::Multimedia
+    Qt6::DataVisualization
     PUBLIC
     ${catkin_LIBRARIES}
     ${OpenCV_LIBRARIES}

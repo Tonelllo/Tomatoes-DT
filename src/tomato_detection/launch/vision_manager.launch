@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<launch>
+   <node name="detection" pkg="tomato_detection" type="detection.py" output="screen"/>
+   <node name="counting_track" pkg="tomato_detection" type="counting_track.py" output="screen"/>
+   <node name="tomato_vision_manager" pkg="tomato_detection" type="tomato_vision_manager" output="screen"/>
+</launch>

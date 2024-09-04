@@ -13,15 +13,18 @@ ProcessCaller::ProcessCaller()
 void ProcessCaller::startHomeMovement()
 {
   QProcess* homing = new QProcess(this);
-  connect(homing, &QProcess::errorOccurred, this, [homing](){
-      qCritical() << "Error occured while starting homing script:";
-      qCritical() << homing->errorString();
+  connect(homing, &QProcess::errorOccurred, this, [homing]() {
+    qCritical() << "Error occured while starting homing script:";
+    qCritical() << homing->errorString();
   });
-  connect(homing, &QProcess::readyReadStandardOutput, this, [homing, this](){
-      qDebug() << homing->readAllStandardOutput();
-      setProcessOutput(homing->readAllStandardOutput());
+  connect(homing, &QProcess::readyReadStandardOutput, this, [homing, this]() {
+    QString out = homing->readAllStandardOutput();
+    qDebug() << out;
+    setProcessOutput(out);
   });
-  homing->start(m_modulePath + "/scripts/tuck_arm.py");
+  QStringList arguments;
+  arguments << m_modulePath + "/scripts/tuck_arm.py";
+  homing->start("python", arguments);
 }
 
 QString ProcessCaller::processOutput() const
