@@ -4,5 +4,9 @@ import Tonelllo.ImageProvider 1.0
 YoloPaneForm{
     Component.onCompleted: {
         ImageProvider.yoloSink = yoloOut.videoSink
+
+        /* ripe.rosStart(ImageProvider.getNodeHandle()); */
+        /* halfRipe.rosStart(ImageProvider.getNodeHandle()); */
+        /* green.rosStart(ImageProvider.getNodeHandle()); */
     }
 }

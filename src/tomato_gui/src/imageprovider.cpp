@@ -14,13 +14,15 @@
 #include <ros/package.h>
 #include <QDir>
 #include "cv_bridge/cv_bridge.h"
+#include "ros/forwards.h"
 #include "sensor_msgs/Image.h"
 #include "sensor_msgs/image_encodings.h"
 
-ImageProvider::ImageProvider(ros::NodeHandle nh, QObject* parent) : m_image_transport(nh), m_yolo_transport(nh)
+ImageProvider::ImageProvider(ros::NodeHandle& nh, QObject* parent) : m_image_transport(nh), m_yolo_transport(nh)
 {
   m_image_sub = m_image_transport.subscribe("xtion/rgb/image_raw", 1, &ImageProvider::frameCallback, this);
   m_yolo_sub = m_image_transport.subscribe("tomato_detection/detection_result", 1, &ImageProvider::yoloCallback, this);
+  m_nh = nh;
   QString modulePath = QString::fromStdString(ros::package::getPath("tomato_gui"));
   if (!QDir(modulePath + "/VisionConfig").exists())
   {
@@ -377,4 +379,8 @@ void ImageProvider::setYoloSink(QVideoSink *newYoloSink)
     return;
   m_yoloSink = newYoloSink;
   emit yoloSinkChanged();
+}
+
+ros::NodeHandle ImageProvider::getNodeHandle() {
+  return m_nh;
 }

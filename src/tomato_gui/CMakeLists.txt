@@ -39,7 +39,9 @@ endif()
 include_directories(
     ${catkin_INCLUDE_DIRS}
     ${OpenCV_INCLUDE_DIRS}
+    src/ # This is needed otherwise it does not see tomatoeslistmodel.h
 )
+
 
 qt_add_executable(tomato_guiApp
     src/main.cpp
@@ -47,6 +49,8 @@ qt_add_executable(tomato_guiApp
     src/imageprovider.cpp
     src/processcaller.h
     src/processcaller.cpp
+    src/tomatoeslistmodel.h
+    src/tomatoeslistmodel.cpp
 )
 
 qt_add_resources(tomato_guiApp "configuration"

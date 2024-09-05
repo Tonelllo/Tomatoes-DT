@@ -10,6 +10,7 @@
 #include <qtmetamacros.h>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
+#include "ros/node_handle.h"
 
 class ImageProvider : public QVideoSink
 {
@@ -28,9 +29,10 @@ class ImageProvider : public QVideoSink
   Q_PROPERTY(uint rad_max READ rad_max WRITE setRad_max NOTIFY rad_maxChanged FINAL)
   Q_PROPERTY(QString savePath READ savePath WRITE setSavePath NOTIFY savePathChanged FINAL)
 public:
-  explicit ImageProvider(ros::NodeHandle, QObject* parent = nullptr);
+  explicit ImageProvider(ros::NodeHandle&, QObject* parent = nullptr);
   void setMaskedImage(QVideoFrame* newMaskedImage);
 
+  Q_INVOKABLE ros::NodeHandle getNodeHandle();
   Q_INVOKABLE void saveSettings();
   Q_INVOKABLE void restoreSettings();
 
@@ -101,6 +103,7 @@ signals:
 
 private:
   const uint ERROR_VAL = 99999;
+  ros::NodeHandle m_nh;
   image_transport::ImageTransport m_image_transport;
   image_transport::Subscriber m_image_sub;
 

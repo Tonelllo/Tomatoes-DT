@@ -11,11 +11,15 @@ import QtMultimedia 6.2
 import QtDataVisualization
 import tomato_gui
 import Tonelllo.ImageProvider 1.0
+import Tonelllo.TomatoModels 1.0
 
 Rectangle {
     id: yoloWindow
 
     property alias yoloOut: yoloOut
+    property alias ripe: ripe
+    property alias halfRipe: halfRipe
+    property alias green: green
 
     color: Universal.background
 
@@ -33,14 +37,15 @@ Rectangle {
         Scatter3D {
             id: tomatoVisualizer
 
-            theme.backgroundColor: yoloWindow.color
+            theme.windowColor: yoloWindow.color
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.preferredWidth: 100
+
             Scatter3DSeries {
                 baseColor: "red"
                 ItemModelScatterDataProxy {
-                    itemModel: redModel
+                    itemModel: ripe
                     // Mapping model roles to scatter series item coordinates.
                     xPosRole: "xPos"
                     yPosRole: "yPos"
@@ -50,45 +55,40 @@ Rectangle {
             Scatter3DSeries {
                 baseColor: "orange"
                 ItemModelScatterDataProxy {
-                    itemModel: orangeModel
+                    itemModel: halfRipe
                     // Mapping model roles to scatter series item coordinates.
                     xPosRole: "xPos"
                     yPosRole: "yPos"
                     zPosRole: "zPos"
                 }
             }
+            Scatter3DSeries {
+                baseColor: "green"
+                ItemModelScatterDataProxy {
+                    itemModel: halfRipe
+                    // Mapping model roles to scatter series item coordinates.
+                    xPosRole: "xPos"
+                    yPosRole: "yPos"
+                    zPosRole: "zPos"
+                }
+            }
+
         }
 
-        ListModel {
-            id: orangeModel
-            ListElement {
-                xPos: "2.754"
-                yPos: "1.455"
-                zPos: "3.362"
-            }
-            ListElement {
-                xPos: "3.164"
-                yPos: "2.022"
-                zPos: "4.348"
-            }
+        /* 0 -> 'fully_ripened' */
+        /* 1 -> 'half_ripened' */
+        /* 2 -> 'green' */
+        TomatoListModel {
+            id: ripe
+            ripeness: 0
         }
-        ListModel {
-            id: redModel
-            ListElement {
-                xPos: "4.564"
-                yPos: "1.865"
-                zPos: "1.346"
-            }
-            ListElement {
-                xPos: "1.068"
-                yPos: "1.224"
-                zPos: "2.983"
-            }
-            ListElement {
-                xPos: "2.323"
-                yPos: "2.502"
-                zPos: "3.133"
-            }
+        TomatoListModel {
+            id: halfRipe
+            ripeness: 1
+        }
+        TomatoListModel {
+            id: green
+            ripeness: 2
         }
     }
 }
