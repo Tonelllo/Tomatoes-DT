@@ -33,10 +33,6 @@ print("STARTED")
 MAX_HISTORY = 30
 
 
-def getCenter(x, y, w, h):
-    return ((x+w) / 2, (y+h) / 2)
-
-
 def publishTrackingResult(img):
     out_img = bridge.cv2_to_imgmsg(img, encoding="bgr8")
     imgPublisher.publish(out_img)
@@ -82,7 +78,7 @@ def callback(data):
                 tomatoes[id] = {"arr": [], "cls": int(label), "id": int(id)}
             else:
                 x, y, w, h = box
-                tomatoes[id]["arr"].insert(0, getCenter(x, y, w, h))
+                tomatoes[id]["arr"].insert(0, (x, y))
                 if len(tomatoes[id]["arr"]) > MAX_HISTORY:
                     tomatoes[id]["arr"].pop()
                     points.append(np.std(tomatoes[id]["arr"], axis=0))

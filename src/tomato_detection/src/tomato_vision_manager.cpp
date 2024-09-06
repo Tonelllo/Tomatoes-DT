@@ -1,29 +1,25 @@
+#include "cv_bridge/cv_bridge.h"
 #include "geometry_msgs/Pose.h"
 #include "geometry_msgs/PoseArray.h"
+#include "image_geometry/pinhole_camera_model.h"
 #include "opencv2/core/types.hpp"
 #include "opencv2/highgui.hpp"
+#include "opencv2/imgproc.hpp"
 #include "ros/console.h"
-#include "ros/init.h"
-#include "ros/time.h"
 #include "sensor_msgs/CameraInfo.h"
 #include "sensor_msgs/Image.h"
-#include "sensor_msgs/PointCloud2.h"
-#include "sensor_msgs/point_cloud2_iterator.h"
+#include "sensor_msgs/image_encodings.h"
 #include <boost/bind/bind.hpp>
 #include <boost/smart_ptr/make_shared_array.hpp>
 #include <cctype>
 #include <cmath>
-#include <cstdint>
 #include <map>
 #include <ros/ros.h>
 #include <strings.h>
 #include "tf/LinearMath/Matrix3x3.h"
 #include "tf/LinearMath/Vector3.h"
 #include "tf/transform_datatypes.h"
-#include "tf/transform_listener.h"
 #include "tomato_vision_manager.h"
-#include "tf/tf.h"
-#include "pcl_ros/transforms.h"
 #include <pcl_conversions/pcl_conversions.h>
 
 static double deg2rad(double degrees)
@@ -41,7 +37,7 @@ VisionManager::VisionManager(ros::NodeHandle& nh)
 
   m_pose_sub_.subscribe(m_nh_, "/tomato_detection/detected_tomatoes", 1);
   m_camera_sub_.subscribe(m_nh_, "/xtion/depth_registered/camera_info", 1);
-  m_point_sub_.subscribe(m_nh_, "/xtion/depth_registered/points", 1);
+  m_point_sub_.subscribe(m_nh_, "/xtion/depth_registered/image_raw", 1);
   m_sync_ = std::make_shared<message_filters::Synchronizer<Sync_policy_>>(10);
   m_sync_->connectInput(m_pose_sub_, m_camera_sub_, m_point_sub_);
   m_sync_->registerCallback(&VisionManager::computeDistances, this);
@@ -174,7 +170,7 @@ Eigen::Matrix4f VisionManager::stampedTransform2Matrix4f(const tf::StampedTransf
 
 // TODO check for ::constPtr
 void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::CameraInfo info,
-                                     pcl::PointCloud<pcl::PointXYZ> pc)
+                                     sensor_msgs::Image depthInfo)
 {
   /**
    *                    X
@@ -184,71 +180,45 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
    *    Y |
    *      V
    */
-  // ROS_INFO("VVVVVVVVVVVVVVVVVVVVVVVV");
-  m_camera_model_.fromCameraInfo(info);
-  geometry_msgs::PoseArray positions;
-  tf::TransformListener tfListener;
-  tf::StampedTransform tfStTr;
-  sensor_msgs::PointCloud2 camera_frame_pc;
-  tfListener.lookupTransform(m_camera_model_.tfFrame(), pc.header.frame_id, ros::Time::now(), tfStTr);
-  pcl_ros::transformPointCloud(stampedTransform2Matrix4f(tfStTr), pc, camera_frame_pc);
 
+  geometry_msgs::PoseArray positions;
+  cv::Mat f32image;
+  cv_bridge::CvImagePtr cvPtr = cv_bridge::toCvCopy(depthInfo, sensor_msgs::image_encodings::TYPE_32FC1);
+  cvPtr->image.copyTo(f32image);
+  image_geometry::PinholeCameraModel pinholeModel;
+  pinholeModel.fromCameraInfo(info);
   for (geometry_msgs::Pose pose : msg.poses)
   {
     // ROS_INFO("%f %f %f", pose.position.x, pose.position.y, pose.position.z);
     // TODO It's created each iteration
+    // Z is the class and y is the id
     std::map<std::string, int> vals;
+    geometry_msgs::Pose position;
     int x = round(pose.orientation.x);
     int y = round(pose.orientation.y);
-    geometry_msgs::Pose position;
+    cv::Point3d ray = pinholeModel.projectPixelTo3dRay(cv::Point2d(y,x)); // TODO check order
+    position.orientation.w = pose.orientation.z; // Assign the class
 
-    for (sensor_msgs::PointField pf : camera_frame_pc.fields)
+    if (depthInfo.encoding != "32FC1")
     {
-      // //ROS_INFO("%s, %d, %d, %d", pf.name.c_str(), pf.offset, pf.datatype, pf.count);
-      vals.insert({ pf.name.c_str(), pf.offset });
+      ROS_ERROR("Wrong image encoding for depth data");
     }
 
-    uint32_t start = camera_frame_pc.width * y + x;
-
-    if (start >= camera_frame_pc.width * camera_frame_pc.height)
-    {
-      ROS_ERROR("INDEX EXCEEDS POINT CLOUD SIZE");
-    }
-
-    sensor_msgs::PointCloud2ConstIterator<float> iter_x(camera_frame_pc, "x");
-    sensor_msgs::PointCloud2ConstIterator<float> iter_y(camera_frame_pc, "y");
-    sensor_msgs::PointCloud2ConstIterator<float> iter_z(camera_frame_pc, "z");
-    // ROS_INFO("--------------------------------------------");
-    // ROS_INFO("--------------------------------------------");
-
-    // ROS_INFO("x: %d, y: %d, z: %d", camera_frame_pc.data[start + vals["x"]], camera_frame_pc.data[start + vals["y"]],
-    // camera_frame_pc.data[start + vals["z"]]);
-
-    position.orientation.x = *(iter_x + start);
-    position.orientation.y = *(iter_y + start);
-    position.orientation.z = *(iter_z + start);
-    position.orientation.w = static_cast<int>(pose.orientation.z);
-    ROS_INFO("CX: %f, CY: %f, x: %f, y: %f, z: %f, id: %f", pose.orientation.x, pose.orientation.y,
-             position.orientation.x, position.orientation.y, position.orientation.z, pose.orientation.w);
+    // cv::circle(f32image, cv::Point(x, y), 15, cv::Scalar(0, 0, 0), 3);
+    // cv::circle(f32image, cv::Point(x, y), 5, cv::Scalar(255, 255, 255), 3);
+    float depth = f32image.at<float>(y, x);
+    ray *= depth;
+    // TODO there are strange things going on with the order
+    position.orientation.x = ray.y;
+    position.orientation.y = -ray.x;
+    // TODO NOTE CHECK
+    position.orientation.z = ray.z;
     positions.poses.push_back(position);
   }
-  cv::Mat outx(cv::Size(640, 480), CV_8UC1);
-  cv::Mat outy(cv::Size(640, 480), CV_8UC1);
-  cv::Mat outz(cv::Size(640, 480), CV_8UC1);
-  int count = 0;
-  for (sensor_msgs::PointCloud2ConstIterator<float> iter(camera_frame_pc, "x"); iter != iter.end(); ++iter)
-  {
-    outx.at<uchar>(count / 640, count % 640) = std::isnan(*iter) ? 0 : 255;
-    outy.at<uchar>(count / 640, count % 640) = std::isnan(*(iter+1)) ? 0 : 255;
-    outz.at<uchar>(count / 640, count % 640) = std::isnan(*(iter+2)) ? 0 : 255;
-    count++;
-  }
-  cv::imshow("x_coord", outx);
-  cv::imshow("y_coord", outy);
-  cv::imshow("z_coord", outz);
-  cv::waitKey(10);
+  // cv::imshow("cane", f32image);
+  // cv::waitKey(100);
+
   m_tomato_position_publisher_.publish(positions);
-  ROS_INFO("########################");
 }
 
 void VisionManager::getBestPosition()
