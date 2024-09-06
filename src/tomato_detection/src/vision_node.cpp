@@ -10,7 +10,6 @@ int main(int argc, char* argv[])
   ros::NodeHandle nh;
   VisionManager vm(nh);
 
-
   if (!ros::Time::waitForValid(ros::WallDuration(10.0)))  // NOTE: Important when using simulated clock
   {
     ROS_FATAL("Timed-out waiting for valid time.");
@@ -24,17 +23,20 @@ int main(int argc, char* argv[])
   ros::Rate rate(10);
   enum class states
   {
+    IDLE,
     LOOK_UP,
     SCAN,
     GOTO_BEST,
     COMPUTE_DISTANCES
   };
-  states state = states::LOOK_UP;
+  states state = states::IDLE;
   bool once = true;
   while (ros::ok())
   {
     switch (state)
     {
+      case states::IDLE:
+        break;
       case states::LOOK_UP:
         if (once)
         {

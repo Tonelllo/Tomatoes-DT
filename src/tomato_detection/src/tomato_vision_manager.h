@@ -3,13 +3,19 @@
 #include <control_msgs/FollowJointTrajectoryAction.h>
 #include <actionlib/client/simple_action_client.h>
 #include "geometry_msgs/PoseArray.h"
+#include "pcl/conversions.h"
+#include "pcl/impl/point_types.hpp"
 #include "ros/forwards.h"
+#include "ros/publisher.h"
 #include <tomato_detection/BestPos.h>
 #include <message_filters/subscriber.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/synchronizer.h>
 #include <boost/smart_ptr/shared_ptr.hpp>
 #include <sensor_msgs/PointCloud2.h>
+#include <image_geometry/pinhole_camera_model.h>
+#include "tf/transform_datatypes.h"
+#include "Eigen/Dense"
 
 class VisionManager
 {
@@ -22,13 +28,18 @@ class VisionManager
   tomato_detection::BestPos m_best_pos_msg_;
   ros::NodeHandle m_nh_;
   ros::ServiceClient m_best_pos_client_;
+  image_geometry::PinholeCameraModel m_camera_model_;
+  Eigen::Matrix4f stampedTransform2Matrix4f(const tf::StampedTransform&);
 
   using Sync_policy_ = message_filters::sync_policies::ApproximateTime<geometry_msgs::PoseArray, sensor_msgs::CameraInfo, sensor_msgs::PointCloud2>;
   message_filters::Subscriber<geometry_msgs::PoseArray> m_pose_sub_;
   message_filters::Subscriber<sensor_msgs::CameraInfo> m_camera_sub_;
-  message_filters::Subscriber<sensor_msgs::PointCloud2> m_point_sub_;
+  // message_filters::Subscriber<sensor_msgs::PointCloud2> m_point_sub_;
+  message_filters::Subscriber<pcl::PointCloud<pcl::PointXYZ>> m_point_sub_;
   
   std::shared_ptr<message_filters::Synchronizer<Sync_policy_>> m_sync_;
+
+  ros::Publisher m_tomato_position_publisher_;
 
 public:
   VisionManager(ros::NodeHandle&);
@@ -36,7 +47,7 @@ public:
   void lookUp();
   void scan();
   void lookAtBestPosition();
-  void computeDistances(geometry_msgs::PoseArray, sensor_msgs::CameraInfo, sensor_msgs::PointCloud2);
+  void computeDistances(geometry_msgs::PoseArray, sensor_msgs::CameraInfo, pcl::PointCloud<pcl::PointXYZ> );
   void getBestPosition();
   void startYOLOScan();
   bool isGoalReached();

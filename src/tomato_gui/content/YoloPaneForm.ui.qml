@@ -65,7 +65,7 @@ Rectangle {
             Scatter3DSeries {
                 baseColor: "green"
                 ItemModelScatterDataProxy {
-                    itemModel: halfRipe
+                    itemModel: green
                     // Mapping model roles to scatter series item coordinates.
                     xPosRole: "xPos"
                     yPosRole: "yPos"

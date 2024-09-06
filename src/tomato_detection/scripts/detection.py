@@ -27,7 +27,6 @@ pub = rospy.Publisher("tomato_detection/detected_tomatoes",
                       PoseArray, queue_size=5)
 imgPublisher = rospy.Publisher(
     "tomato_detection/detection_result", Image, queue_size=1)
-classes = ['RIPE', 'HALF', 'UNRIPE']
 
 print("STARTED")
 
@@ -68,6 +67,7 @@ def callback(data):
     # TODO Why does it keep displaying all the bounding boxes?
     publishTrackingResult(result[0].plot())
 
+    # TODO USE HASH TABLE FOR tomatoes
     if result[0].boxes.id is not None:
         publishTrackingResult(result[0].plot())
         track_ids = result[0].boxes.id.int().cpu().tolist()
@@ -76,23 +76,20 @@ def callback(data):
         points = []
         currently_detected_keys = []
         for box, id, label in zip(boxes, track_ids, labels):
-            if classes[int(label)] == 'RIPE' or classes[int(label)] == 'HALF':
-                currently_detected_keys.append(id)
-                if id not in tomatoes:
-                    # You lose the first
-                    tomatoes[id] = []
-                else:
-                    x, y, w, h = box
-                    tomatoes[id].insert(0, getCenter(x, y, w, h))
-                    if len(tomatoes[id]) > MAX_HISTORY:
-                        tomatoes[id].pop()
-                        points.append(np.std(tomatoes[id], axis=0))
-                        # print(id, np.std(tomatoes[id], axis=0))
+            currently_detected_keys.append(id)
+            if id not in tomatoes:
+                # You lose the first
+                tomatoes[id] = {"arr": [], "cls": int(label), "id": int(id)}
+            else:
+                x, y, w, h = box
+                tomatoes[id]["arr"].insert(0, getCenter(x, y, w, h))
+                if len(tomatoes[id]["arr"]) > MAX_HISTORY:
+                    tomatoes[id]["arr"].pop()
+                    points.append(np.std(tomatoes[id]["arr"], axis=0))
 
         for key in list(tomatoes):
             if key not in currently_detected_keys:
                 tomatoes.pop(key)
-
         # This keys are sorted based on how long they have
         # been detected. Smallest indexes are the tomatoes
         # that have not disappeared in the tracking thus
@@ -103,12 +100,13 @@ def callback(data):
 
         out = PoseArray()
         for tomato in sorted_keys_by_time:
-            if len(tomatoes[tomato]) == MAX_HISTORY:
+            if len(tomatoes[tomato]["arr"]) == MAX_HISTORY:
                 elem = Pose()
-                avg = np.mean(tomatoes[tomato], axis=0)
-                elem.position.x = avg[0]
-                elem.position.y = avg[1]
-                elem.position.z = -1
+                avg = np.mean(tomatoes[tomato]["arr"], axis=0)
+                elem.orientation.x = avg[0]
+                elem.orientation.y = avg[1]
+                elem.orientation.z = tomatoes[tomato]["cls"]
+                elem.orientation.w = tomatoes[tomato]["id"]
                 out.poses.append(elem)
                 # out.header = sensor_msgs.msg.Header()
                 out.header.stamp = rospy.Time.now()

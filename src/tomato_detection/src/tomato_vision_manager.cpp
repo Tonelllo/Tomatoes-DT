@@ -1,14 +1,30 @@
+#include "geometry_msgs/Pose.h"
+#include "geometry_msgs/PoseArray.h"
+#include "opencv2/core/types.hpp"
+#include "opencv2/highgui.hpp"
 #include "ros/console.h"
 #include "ros/init.h"
+#include "ros/time.h"
 #include "sensor_msgs/CameraInfo.h"
+#include "sensor_msgs/Image.h"
 #include "sensor_msgs/PointCloud2.h"
+#include "sensor_msgs/point_cloud2_iterator.h"
 #include <boost/bind/bind.hpp>
 #include <boost/smart_ptr/make_shared_array.hpp>
+#include <cctype>
+#include <cmath>
 #include <cstdint>
 #include <map>
 #include <ros/ros.h>
 #include <strings.h>
+#include "tf/LinearMath/Matrix3x3.h"
+#include "tf/LinearMath/Vector3.h"
+#include "tf/transform_datatypes.h"
+#include "tf/transform_listener.h"
 #include "tomato_vision_manager.h"
+#include "tf/tf.h"
+#include "pcl_ros/transforms.h"
+#include <pcl_conversions/pcl_conversions.h>
 
 static double deg2rad(double degrees)
 {
@@ -29,6 +45,8 @@ VisionManager::VisionManager(ros::NodeHandle& nh)
   m_sync_ = std::make_shared<message_filters::Synchronizer<Sync_policy_>>(10);
   m_sync_->connectInput(m_pose_sub_, m_camera_sub_, m_point_sub_);
   m_sync_->registerCallback(&VisionManager::computeDistances, this);
+
+  m_tomato_position_publisher_ = m_nh_.advertise<geometry_msgs::PoseArray>("/tomato_vision_manager/tomato_position", 1);
 }
 
 void VisionManager::createHeadClient()
@@ -132,34 +150,105 @@ void VisionManager::startYOLOScan()
   m_best_pos_client_.call(m_best_pos_msg_);
 }
 
+Eigen::Matrix4f VisionManager::stampedTransform2Matrix4f(const tf::StampedTransform& in)
+{
+  Eigen::Matrix4f ret;
+
+  tf::Vector3 translation;
+  ret(0, 3) = translation.x();
+  ret(1, 3) = translation.y();
+  ret(2, 3) = translation.z();
+  ret(3, 3) = 1;
+
+  tf::Matrix3x3 rotation = in.getBasis();
+  for (size_t y = 0; y < 3; y++)
+  {
+    for (size_t x = 0; x < 3; x++)
+    {
+      ret(y, x) = rotation[y][x];
+    }
+  }
+
+  return ret;
+}
+
 // TODO check for ::constPtr
 void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::CameraInfo info,
-                                     sensor_msgs::PointCloud2 pc)
+                                     pcl::PointCloud<pcl::PointXYZ> pc)
 {
-  //ROS_INFO("VVVVVVVVVVVVVVVVVVVVVVVV");
+  /**
+   *                    X
+   *      *--------------->
+   *      |
+   *      |
+   *    Y |
+   *      V
+   */
+  // ROS_INFO("VVVVVVVVVVVVVVVVVVVVVVVV");
+  m_camera_model_.fromCameraInfo(info);
+  geometry_msgs::PoseArray positions;
+  tf::TransformListener tfListener;
+  tf::StampedTransform tfStTr;
+  sensor_msgs::PointCloud2 camera_frame_pc;
+  tfListener.lookupTransform(m_camera_model_.tfFrame(), pc.header.frame_id, ros::Time::now(), tfStTr);
+  pcl_ros::transformPointCloud(stampedTransform2Matrix4f(tfStTr), pc, camera_frame_pc);
+
   for (geometry_msgs::Pose pose : msg.poses)
   {
-    // //ROS_INFO("%f %f %f", pose.position.x, pose.position.y, pose.position.z);
+    // ROS_INFO("%f %f %f", pose.position.x, pose.position.y, pose.position.z);
     // TODO It's created each iteration
     std::map<std::string, int> vals;
-    int x = round(pose.position.x);
-    int y = round(pose.position.y);
+    int x = round(pose.orientation.x);
+    int y = round(pose.orientation.y);
+    geometry_msgs::Pose position;
 
-
-    for (sensor_msgs::PointField pf : pc.fields)
+    for (sensor_msgs::PointField pf : camera_frame_pc.fields)
     {
       // //ROS_INFO("%s, %d, %d, %d", pf.name.c_str(), pf.offset, pf.datatype, pf.count);
       vals.insert({ pf.name.c_str(), pf.offset });
     }
 
-    uint32_t start = pc.point_step * x + y * pc.row_step;
-    // for(size_t index = start; index < start + pc.point_step; index++){
-    //   //ROS_INFO("%d", pc.data[index]);
-    // }
+    uint32_t start = camera_frame_pc.width * y + x;
 
-    //ROS_INFO("x: %d, y: %d, z: %d", pc.data[start + vals["x"]], pc.data[start + vals["y"]], pc.data[start + vals["z"]]);
+    if (start >= camera_frame_pc.width * camera_frame_pc.height)
+    {
+      ROS_ERROR("INDEX EXCEEDS POINT CLOUD SIZE");
+    }
+
+    sensor_msgs::PointCloud2ConstIterator<float> iter_x(camera_frame_pc, "x");
+    sensor_msgs::PointCloud2ConstIterator<float> iter_y(camera_frame_pc, "y");
+    sensor_msgs::PointCloud2ConstIterator<float> iter_z(camera_frame_pc, "z");
+    // ROS_INFO("--------------------------------------------");
+    // ROS_INFO("--------------------------------------------");
+
+    // ROS_INFO("x: %d, y: %d, z: %d", camera_frame_pc.data[start + vals["x"]], camera_frame_pc.data[start + vals["y"]],
+    // camera_frame_pc.data[start + vals["z"]]);
+
+    position.orientation.x = *(iter_x + start);
+    position.orientation.y = *(iter_y + start);
+    position.orientation.z = *(iter_z + start);
+    position.orientation.w = static_cast<int>(pose.orientation.z);
+    ROS_INFO("CX: %f, CY: %f, x: %f, y: %f, z: %f, id: %f", pose.orientation.x, pose.orientation.y,
+             position.orientation.x, position.orientation.y, position.orientation.z, pose.orientation.w);
+    positions.poses.push_back(position);
   }
-  //ROS_INFO("########################");
+  cv::Mat outx(cv::Size(640, 480), CV_8UC1);
+  cv::Mat outy(cv::Size(640, 480), CV_8UC1);
+  cv::Mat outz(cv::Size(640, 480), CV_8UC1);
+  int count = 0;
+  for (sensor_msgs::PointCloud2ConstIterator<float> iter(camera_frame_pc, "x"); iter != iter.end(); ++iter)
+  {
+    outx.at<uchar>(count / 640, count % 640) = std::isnan(*iter) ? 0 : 255;
+    outy.at<uchar>(count / 640, count % 640) = std::isnan(*(iter+1)) ? 0 : 255;
+    outz.at<uchar>(count / 640, count % 640) = std::isnan(*(iter+2)) ? 0 : 255;
+    count++;
+  }
+  cv::imshow("x_coord", outx);
+  cv::imshow("y_coord", outy);
+  cv::imshow("z_coord", outz);
+  cv::waitKey(10);
+  m_tomato_position_publisher_.publish(positions);
+  ROS_INFO("########################");
 }
 
 void VisionManager::getBestPosition()

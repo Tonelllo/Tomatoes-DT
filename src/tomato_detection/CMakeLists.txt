@@ -19,12 +19,14 @@ find_package(catkin REQUIRED COMPONENTS
     geometry_msgs
     roscpp
     rospy
+    tf
+    pcl_ros
 )
 
 
 
 ## System dependencies are found with CMake's conventions
-# find_package(Boost REQUIRED COMPONENTS system)
+find_package(Boost REQUIRED COMPONENTS system)
 
 
 ## Uncomment this if the package has a setup.py. This macro ensures
@@ -111,11 +113,11 @@ generate_messages(
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
+find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 catkin_package(
-#  INCLUDE_DIRS include
+ # INCLUDE_DIRS include
 #  LIBRARIES tomato_detection
-#  CATKIN_DEPENDS rospy
-#  DEPENDS system_lib
+ DEPENDS EIGEN3
 )
 
 ###########
@@ -127,6 +129,7 @@ catkin_package(
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -157,6 +160,7 @@ add_dependencies(tomato_vision_manager ${${PROJECT_NAME}_EXPORTED_TARGETS} ${cat
 ## Specify libraries to link a library or executable target against
 target_link_libraries(tomato_vision_manager
   ${catkin_LIBRARIES}
+  Eigen3::Eigen
 )
 
 #############
