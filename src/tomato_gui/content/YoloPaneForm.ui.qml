@@ -38,9 +38,26 @@ Rectangle {
             id: tomatoVisualizer
 
             theme.windowColor: yoloWindow.color
+            theme.font.pointSize: 40
+
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.preferredWidth: 100
+
+            aspectRatio: 1
+            horizontalAspectRatio: 1
+
+            axisX.title: "Y"
+            axisX.titleVisible: true
+            axisX.labelAutoRotation: 90
+
+            axisY.title: "X"
+            axisY.titleVisible: true
+            axisY.labelAutoRotation: 90
+
+            axisZ.title: "Z"
+            axisZ.titleVisible: true
+            axisZ.labelAutoRotation: 90
 
             Scatter3DSeries {
                 baseColor: "red"

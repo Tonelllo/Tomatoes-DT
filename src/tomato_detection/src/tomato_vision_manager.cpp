@@ -3,8 +3,6 @@
 #include "geometry_msgs/PoseArray.h"
 #include "image_geometry/pinhole_camera_model.h"
 #include "opencv2/core/types.hpp"
-#include "opencv2/highgui.hpp"
-#include "opencv2/imgproc.hpp"
 #include "ros/console.h"
 #include "sensor_msgs/CameraInfo.h"
 #include "sensor_msgs/Image.h"
@@ -19,6 +17,7 @@
 #include "tf/LinearMath/Matrix3x3.h"
 #include "tf/LinearMath/Vector3.h"
 #include "tf/transform_datatypes.h"
+#include "tf/transform_listener.h"
 #include "tomato_vision_manager.h"
 #include <pcl_conversions/pcl_conversions.h>
 
@@ -185,8 +184,12 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
   cv::Mat f32image;
   cv_bridge::CvImagePtr cvPtr = cv_bridge::toCvCopy(depthInfo, sensor_msgs::image_encodings::TYPE_32FC1);
   cvPtr->image.copyTo(f32image);
-  image_geometry::PinholeCameraModel pinholeModel;
-  pinholeModel.fromCameraInfo(info);
+  m_camera_model_.fromCameraInfo(info);
+
+  // tf::TransformListener tfListener;
+  // tf::StampedTransform tfStTr;
+  // tfListener.lookupTransform("torso_fixed_link", m_camera_model_.tfFrame(), ros::Time::now(), tfStTr);
+
   for (geometry_msgs::Pose pose : msg.poses)
   {
     // ROS_INFO("%f %f %f", pose.position.x, pose.position.y, pose.position.z);
@@ -196,8 +199,8 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
     geometry_msgs::Pose position;
     int x = round(pose.orientation.x);
     int y = round(pose.orientation.y);
-    cv::Point3d ray = pinholeModel.projectPixelTo3dRay(cv::Point2d(y,x)); // TODO check order
-    position.orientation.w = pose.orientation.z; // Assign the class
+    cv::Point3d ray = m_camera_model_.projectPixelTo3dRay(cv::Point2d(y, x));  // TODO check order
+    position.orientation.w = pose.orientation.z;                               // Assign the class
 
     if (depthInfo.encoding != "32FC1")
     {
@@ -208,11 +211,13 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
     // cv::circle(f32image, cv::Point(x, y), 5, cv::Scalar(255, 255, 255), 3);
     float depth = f32image.at<float>(y, x);
     ray *= depth;
-    // TODO there are strange things going on with the order
-    position.orientation.x = ray.y;
-    position.orientation.y = -ray.x;
-    // TODO NOTE CHECK
-    position.orientation.z = ray.z;
+    tf::Vector3 cameraPoint(ray.x, ray.y, ray.z);
+    tf::Vector3 bodyFixedPoint = cameraPoint;
+    // bodyFixedPoint = tfStTr * cameraPoint;
+    position.orientation.x = bodyFixedPoint.x();
+    position.orientation.y = bodyFixedPoint.y();
+    position.orientation.z = bodyFixedPoint.z();
+
     positions.poses.push_back(position);
   }
   // cv::imshow("cane", f32image);
