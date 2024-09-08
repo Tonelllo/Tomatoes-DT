@@ -69,10 +69,10 @@ void TomatoesListModel::tomatoInsertionCallback(const geometry_msgs::PoseArrayCo
   beginInsertRows(QModelIndex(), 0, pa->poses.size());
   for (const geometry_msgs::Pose& pos : pa->poses)
   {
-    if (static_cast<int>(pos.orientation.w) == m_ripeness)
+    if (static_cast<int>(pos.orientation.x) == m_ripeness)
     {
-      QVector3D newElem = { static_cast<float>(pos.orientation.x), static_cast<float>(pos.orientation.y),
-                            static_cast<float>(pos.orientation.z) };
+      QVector3D newElem = { static_cast<float>(pos.position.x), static_cast<float>(pos.position.y),
+                            static_cast<float>(pos.position.z) };
       m_points.push_back(newElem);
     }
   }

@@ -199,8 +199,9 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
     geometry_msgs::Pose position;
     int x = round(pose.orientation.x);
     int y = round(pose.orientation.y);
-    cv::Point3d ray = m_camera_model_.projectPixelTo3dRay(cv::Point2d(y, x));  // TODO check order
-    position.orientation.w = pose.orientation.z;                               // Assign the class
+    cv::Point3d ray = m_camera_model_.projectPixelTo3dRay(cv::Point2d(y, x));
+    position.orientation.x = pose.orientation.z;    // Assign the class
+    position.orientation.y = pose.orientation.w;    // Assign the id
 
     if (depthInfo.encoding != "32FC1")
     {
@@ -214,9 +215,9 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
     tf::Vector3 cameraPoint(ray.x, ray.y, ray.z);
     tf::Vector3 bodyFixedPoint = cameraPoint;
     // bodyFixedPoint = tfStTr * cameraPoint;
-    position.orientation.x = bodyFixedPoint.x();
-    position.orientation.y = bodyFixedPoint.y();
-    position.orientation.z = bodyFixedPoint.z();
+    position.position.x = bodyFixedPoint.x();
+    position.position.y = bodyFixedPoint.y();
+    position.position.z = bodyFixedPoint.z();
 
     positions.poses.push_back(position);
   }
