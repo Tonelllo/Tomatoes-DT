@@ -7,10 +7,10 @@ Per fare andare la parte di visione
 ```bash
 roslaunch tomato_detection vision_manager.launch
 ```
-
-Per fare andare la gui e' un po' diverso. Bisogna fare andare direttamente
-l'eseguibile che si trova sotto: `/Tomatoes/build/tomato_gui`.
-Una volta che si e' in quella directory:
+Per la gui invece scaricare dall'ultimo release gui.zip che si trova sotto gli
+asset.
+Questo per farvi evitare di scaricare tutto qt.
+Poi nella cartella sotto /bin trovate l'eseguibile
 ```bash
 ./tomato_guiApp
 ```
@@ -57,8 +57,7 @@ Pagina dedicata a YOLO.
 La visualizzazione puo' essere ruotata, e zoommata
 
 # Tomato Gui installazione
+Possibile che manchi questa libreria
 ```bash
 sudo apt install libxcb-cursor-dev
 ```
-
-https://www.qt.io/blog/deploying-to-linux-with-cmake
