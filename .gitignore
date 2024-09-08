@@ -110,3 +110,4 @@ compile_commands.json
 .cache/
 .qtc_clangd/
 src/agri_challenge
+releaseBuild/
