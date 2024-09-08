@@ -55,3 +55,10 @@ Pagina dedicata a YOLO.
 - A destra una visualizzazione 3D dei pomodori.
 **NOTA** Al momento sono ruotati perche' il frame e' sbagliato. <br/>
 La visualizzazione puo' essere ruotata, e zoommata
+
+# Tomato Gui installazione
+```bash
+sudo apt install libxcb-cursor-dev
+```
+
+https://www.qt.io/blog/deploying-to-linux-with-cmake

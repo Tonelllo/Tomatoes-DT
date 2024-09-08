@@ -21,7 +21,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(tomlplusplus)
 
-find_package(Qt6 6.2 REQUIRED COMPONENTS Core Gui Qml Quick Multimedia DataVisualization)
+find_package(Qt6 6.7 REQUIRED COMPONENTS Core Gui Qml Quick Multimedia DataVisualization )
 find_package(catkin REQUIRED COMPONENTS
     roscpp
     image_transport
@@ -42,6 +42,7 @@ include_directories(
     src/ # This is needed otherwise it does not see tomatoeslistmodel.h
 )
 
+qt_policy(SET QTP0001 NEW)
 
 qt_add_executable(tomato_guiApp
     src/main.cpp
@@ -94,6 +95,12 @@ install(TARGETS tomato_guiApp
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
+qt_generate_deploy_qml_app_script(
+    TARGET tomato_guiApp
+    FILENAME_VARIABLE deploy_script
+    NO_UNSUPPORTED_PLATFORM_ERROR
+)
+install(SCRIPT ${deploy_script})
 
 # make IDEs aware of the QML import path
 set(QML_IMPORT_PATH ${PROJECT_BINARY_DIR}/qml CACHE PATH
