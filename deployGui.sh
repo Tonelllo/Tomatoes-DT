@@ -28,7 +28,7 @@ releaseList=$(gh release list --limit 1)
 [[ $releaseList =~ v[0-9]* ]]
 previousVersion="${BASH_REMATCH:1}"
 
-printf "${CY}Old release tag was: $previousVersion${NC}\n"
+printf "${CY}Old release tag was: $previousVersion ${NC}\n"
 
 newVersion=v$(($previousVersion+1))
 
