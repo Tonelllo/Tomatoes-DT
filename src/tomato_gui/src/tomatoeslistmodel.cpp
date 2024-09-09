@@ -49,13 +49,13 @@ QVariant TomatoesListModel::data(const QModelIndex& index, int role) const
   switch ((Roles)role)
   {
     case xPos:
-        return point.x();
+      return point.x();
       break;
     case yPos:
-        return point.y();
+      return point.y();
       break;
     case zPos:
-        return point.z();
+      return point.z();
       break;
   }
   return {};
@@ -63,20 +63,27 @@ QVariant TomatoesListModel::data(const QModelIndex& index, int role) const
 
 void TomatoesListModel::tomatoInsertionCallback(const geometry_msgs::PoseArrayConstPtr& pa)
 {
-  beginRemoveRows(QModelIndex(), 0, m_points.size());
-  m_points.clear();
-  endRemoveRows();
-  beginInsertRows(QModelIndex(), 0, pa->poses.size());
-  for (const geometry_msgs::Pose& pos : pa->poses)
+  if (m_points.size() > 0)
   {
-    if (static_cast<int>(pos.orientation.x) == m_ripeness)
-    {
-      QVector3D newElem = { static_cast<float>(pos.position.x), static_cast<float>(pos.position.z),
-                            static_cast<float>(pos.position.y) };
-      m_points.push_back(newElem);
-    }
+    beginRemoveRows(QModelIndex(), 0, m_points.size() - 1);
+    m_points.clear();
+    endRemoveRows();
   }
-  endInsertRows();
+
+  if (pa->poses.size() > 0)
+  {
+    beginInsertRows(QModelIndex(), 0, pa->poses.size() - 1);
+    for (const geometry_msgs::Pose& pos : pa->poses)
+    {
+      if (static_cast<int>(pos.orientation.x) == m_ripeness)
+      {
+        QVector3D newElem = { static_cast<float>(pos.position.x), static_cast<float>(pos.position.z),
+                              static_cast<float>(pos.position.y) };
+        m_points.push_back(newElem);
+      }
+    }
+    endInsertRows();
+  }
 }
 
 void TomatoesListModel::rosStart()
