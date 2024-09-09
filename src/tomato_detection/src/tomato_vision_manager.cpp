@@ -206,16 +206,12 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
 
     // cv::circle(f32image, cv::Point(x, y), 15, cv::Scalar(0, 0, 0), 3);
     // cv::circle(f32image, cv::Point(x, y), 5, cv::Scalar(255, 255, 255), 3);
-    ROS_INFO("Camera [%f]: X: %d, Y: %d", position.orientation.y, x, y);
     float depth = f32image.at<float>(y, x); // NOTE Row, Col
-    ROS_INFO("Pre depth [%f]: X: %f, Y: %f, Z: %f, ID: %f", position.orientation.y, ray.x, ray.y, ray.z, position.orientation.y);
     ray *= depth;
     tf2::Vector3 cameraPoint(ray.x, ray.y, ray.z);
     tf2::Vector3 bodyFixedPoint;
 
-    ROS_INFO("Pre Trans [%f]: X: %f, Y: %f, Z: %f, ID: %f", position.orientation.y, cameraPoint.x(), cameraPoint.y(), cameraPoint.z(), position.orientation.y);
     bodyFixedPoint = camera_to_torso * cameraPoint;
-    ROS_INFO("Trans [%f]: X: %f, Y: %f, Z: %f, ID: %f", position.orientation.y, bodyFixedPoint.x(), bodyFixedPoint.y(), bodyFixedPoint.z(), position.orientation.y);
 
     position.position.x = bodyFixedPoint.x();
     position.position.y = bodyFixedPoint.y();

@@ -47,6 +47,8 @@ Rectangle {
             aspectRatio: 1
             horizontalAspectRatio: 1
 
+            scene.activeCamera.xRotation: -90
+
             axisX.title: "X"
             axisX.reversed: true
             axisX.titleVisible: true
@@ -63,6 +65,7 @@ Rectangle {
 
             Scatter3DSeries {
                 baseColor: "red"
+                itemLabelFormat: "X:@xLabel Y:@zLabel Z: @yLabel"
                 ItemModelScatterDataProxy {
                     itemModel: ripe
                     // Mapping model roles to scatter series item coordinates.
@@ -73,6 +76,7 @@ Rectangle {
             }
             Scatter3DSeries {
                 baseColor: "orange"
+                itemLabelFormat: "X:@xLabel Y:@zLabel Z: @yLabel"
                 ItemModelScatterDataProxy {
                     itemModel: halfRipe
                     // Mapping model roles to scatter series item coordinates.
@@ -83,6 +87,7 @@ Rectangle {
             }
             Scatter3DSeries {
                 baseColor: "green"
+                itemLabelFormat: "X:@xLabel Y:@zLabel Z: @yLabel"
                 ItemModelScatterDataProxy {
                     itemModel: green
                     // Mapping model roles to scatter series item coordinates.
