@@ -1,9 +1,12 @@
 #include "cv_bridge/cv_bridge.h"
 #include "geometry_msgs/Pose.h"
 #include "geometry_msgs/PoseArray.h"
+#include "geometry_msgs/TransformStamped.h"
 #include "image_geometry/pinhole_camera_model.h"
 #include "opencv2/core/types.hpp"
 #include "ros/console.h"
+#include "ros/duration.h"
+#include "ros/time.h"
 #include "sensor_msgs/CameraInfo.h"
 #include "sensor_msgs/Image.h"
 #include "sensor_msgs/image_encodings.h"
@@ -11,15 +14,14 @@
 #include <boost/smart_ptr/make_shared_array.hpp>
 #include <cctype>
 #include <cmath>
+#include <functional>
 #include <map>
+#include <Eigen/Core>
 #include <ros/ros.h>
 #include <strings.h>
-#include "tf/LinearMath/Matrix3x3.h"
-#include "tf/LinearMath/Vector3.h"
-#include "tf/transform_datatypes.h"
-#include "tf/transform_listener.h"
 #include "tomato_vision_manager.h"
 #include <pcl_conversions/pcl_conversions.h>
+#include <tf2_eigen/tf2_eigen.h>
 
 static double deg2rad(double degrees)
 {
@@ -42,6 +44,8 @@ VisionManager::VisionManager(ros::NodeHandle& nh)
   m_sync_->registerCallback(&VisionManager::computeDistances, this);
 
   m_tomato_position_publisher_ = m_nh_.advertise<geometry_msgs::PoseArray>("/tomato_vision_manager/tomato_position", 1);
+  m_goal_reached_ = false;
+  m_tfListener_ = new tf2_ros::TransformListener(m_buffer_);
 }
 
 void VisionManager::createHeadClient()
@@ -66,77 +70,60 @@ void VisionManager::createHeadClient()
         "action server not available");
 }
 
-void VisionManager::lookUp()
+void VisionManager::goalReachedCallback()
 {
-  m_head_client_->cancelAllGoals();  // TODO not a good practice
-  // Set the number of points in trajectory
-  m_head_goal_.trajectory.points.resize(1);
-
-  int index = 0;
-  m_head_goal_.trajectory.points[index].positions.resize(2);
-  m_head_goal_.trajectory.points[index].positions[0] = 0.0;
-  m_head_goal_.trajectory.points[index].positions[1] = deg2rad(20);
-
-  // Set the number of velocities in the array
-  m_head_goal_.trajectory.points[index].velocities.resize(2);
-
-  // This sets the velocity at which the head will pass
-  // through the waypoint
-  m_head_goal_.trajectory.points[index].velocities[0] = 0.0;
-  m_head_goal_.trajectory.points[index].velocities[1] = 0.0;
-
-  m_head_goal_.trajectory.points[index].time_from_start = ros::Duration(5.0);
-  m_head_client_->sendGoal(m_head_goal_);
-  ros::Duration(1).sleep();
-}
-
-void VisionManager::scan()
-{
-  m_head_client_->cancelAllGoals();  // TODO not a good practice
-  m_head_goal_.trajectory.points.resize(1);
-
-  int index = 0;
-  m_head_goal_.trajectory.points[index].positions.resize(2);
-  m_head_goal_.trajectory.points[index].positions[0] = 0.0;
-  m_head_goal_.trajectory.points[index].positions[1] = deg2rad(-30.0);
-
-  // Set the number of velocities in the array
-  m_head_goal_.trajectory.points[index].velocities.resize(2);
-  // This sets the velocity at which the head will pass
-  // through the waypoint
-  m_head_goal_.trajectory.points[index].velocities[0] = 0.0;
-  m_head_goal_.trajectory.points[index].velocities[1] = 0.0;
-
-  m_head_goal_.trajectory.points[index].time_from_start = ros::Duration(10.0);
-  m_head_client_->sendGoal(m_head_goal_);
-  ros::Duration(1).sleep();
-}
-
-void VisionManager::lookAtBestPosition()
-{
-  m_head_client_->cancelAllGoals();  // TODO not a good practice
-  m_head_goal_.trajectory.points.resize(1);
-
-  int index = 0;
-  m_head_goal_.trajectory.points[index].positions.resize(2);
-  m_head_goal_.trajectory.points[index].positions[0] = 0.0;
-  m_head_goal_.trajectory.points[index].positions[1] = m_best_position_;
-
-  // Set the number of velocities in the array
-  m_head_goal_.trajectory.points[index].velocities.resize(2);
-  // This sets the velocity at which the head will pass
-  // through the waypoint
-  m_head_goal_.trajectory.points[index].velocities[0] = 0.0;
-  m_head_goal_.trajectory.points[index].velocities[1] = 0.0;
-
-  m_head_goal_.trajectory.points[index].time_from_start = ros::Duration(5.0);
-  m_head_client_->sendGoal(m_head_goal_);
-  ros::Duration(1).sleep();
+  m_goal_reached_ = true;
 }
 
 bool VisionManager::isGoalReached()
 {
-  return m_head_client_->getState().isDone();
+  if (m_goal_reached_)
+  {
+    m_goal_reached_ = false;
+    return true;
+  }
+  return false;
+}
+
+void VisionManager::resetTrajectory()
+{
+  m_head_client_->cancelAllGoals();
+  m_head_goal_.trajectory.points.clear();
+}
+
+void VisionManager::setNextPoint(float head_tilt, float time_to_reach)
+{
+  m_head_goal_.trajectory.points.resize(1);
+
+  m_head_goal_.trajectory.points[0].positions.resize(2);
+  m_head_goal_.trajectory.points[0].positions[0] = 0.0;
+  m_head_goal_.trajectory.points[0].positions[1] = deg2rad(head_tilt);
+
+  // Set the number of velocities in the array
+  m_head_goal_.trajectory.points[0].velocities.resize(2);
+
+  // This sets the velocity at which the head will pass
+  // through the waypoint
+  m_head_goal_.trajectory.points[0].velocities[0] = 0.0;
+  m_head_goal_.trajectory.points[0].velocities[1] = 0.0;
+
+  m_head_goal_.trajectory.points[0].time_from_start = ros::Duration(time_to_reach);
+  m_head_client_->sendGoal(m_head_goal_, std::bind(&VisionManager::goalReachedCallback, this));
+}
+
+void VisionManager::lookUp()
+{
+  setNextPoint(20, 5);
+}
+
+void VisionManager::scan()
+{
+  setNextPoint(-30, 10);
+}
+
+void VisionManager::lookAtBestPosition()
+{
+  setNextPoint(m_best_position_, 5);
 }
 
 void VisionManager::startYOLOScan()
@@ -145,26 +132,12 @@ void VisionManager::startYOLOScan()
   m_best_pos_client_.call(m_best_pos_msg_);
 }
 
-Eigen::Matrix4f VisionManager::stampedTransform2Matrix4f(const tf::StampedTransform& in)
+tf2::Transform VisionManager::stampedTransform2tf2Transform(geometry_msgs::TransformStamped in)
 {
-  Eigen::Matrix4f ret;
+  tf2::Quaternion q(in.transform.rotation.x, in.transform.rotation.y, in.transform.rotation.z, in.transform.rotation.w);
+  tf2::Vector3 t(in.transform.translation.x, in.transform.translation.y, in.transform.translation.z);
 
-  tf::Vector3 translation;
-  ret(0, 3) = translation.x();
-  ret(1, 3) = translation.y();
-  ret(2, 3) = translation.z();
-  ret(3, 3) = 1;
-
-  tf::Matrix3x3 rotation = in.getBasis();
-  for (size_t y = 0; y < 3; y++)
-  {
-    for (size_t x = 0; x < 3; x++)
-    {
-      ret(y, x) = rotation[y][x];
-    }
-  }
-
-  return ret;
+  return tf2::Transform(q, t);
 }
 
 // TODO check for ::constPtr
@@ -186,9 +159,18 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
   cvPtr->image.copyTo(f32image);
   m_camera_model_.fromCameraInfo(info);
 
-  // tf::TransformListener tfListener;
-  // tf::StampedTransform tfStTr;
-  // tfListener.lookupTransform("torso_fixed_link", m_camera_model_.tfFrame(), ros::Time::now(), tfStTr);
+  geometry_msgs::TransformStamped transformStamped;
+  tf2::Transform camera_to_torso;
+  try
+  {
+    transformStamped = m_buffer_.lookupTransform("torso_fixed_link", m_camera_model_.tfFrame(), ros::Time(0));
+    camera_to_torso = stampedTransform2tf2Transform(transformStamped);
+  }
+  catch (tf2::TransformException& ex)
+  {
+    ROS_WARN("%s", ex.what());
+    ros::Duration(1.0).sleep();
+  }
 
   for (geometry_msgs::Pose pose : msg.poses)
   {
@@ -200,8 +182,8 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
     int x = round(pose.orientation.x);
     int y = round(pose.orientation.y);
     cv::Point3d ray = m_camera_model_.projectPixelTo3dRay(cv::Point2d(y, x));
-    position.orientation.x = pose.orientation.z;    // Assign the class
-    position.orientation.y = pose.orientation.w;    // Assign the id
+    position.orientation.x = pose.orientation.z;  // Assign the class
+    position.orientation.y = pose.orientation.w;  // Assign the id
 
     if (depthInfo.encoding != "32FC1")
     {
@@ -212,9 +194,9 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
     // cv::circle(f32image, cv::Point(x, y), 5, cv::Scalar(255, 255, 255), 3);
     float depth = f32image.at<float>(y, x);
     ray *= depth;
-    tf::Vector3 cameraPoint(ray.x, ray.y, ray.z);
-    tf::Vector3 bodyFixedPoint = cameraPoint;
-    // bodyFixedPoint = tfStTr * cameraPoint;
+    tf2::Vector3 cameraPoint(ray.x, ray.y, ray.z);
+    tf2::Vector3 bodyFixedPoint;
+    bodyFixedPoint = camera_to_torso * cameraPoint;
     position.position.x = bodyFixedPoint.x();
     position.position.y = bodyFixedPoint.y();
     position.position.z = bodyFixedPoint.z();

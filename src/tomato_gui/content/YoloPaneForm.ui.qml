@@ -47,15 +47,15 @@ Rectangle {
             aspectRatio: 1
             horizontalAspectRatio: 1
 
-            axisX.title: "Y"
+            axisX.title: "X"
             axisX.titleVisible: true
             axisX.labelAutoRotation: 90
 
-            axisY.title: "X"
+            axisY.title: "Z"
             axisY.titleVisible: true
             axisY.labelAutoRotation: 90
 
-            axisZ.title: "Z"
+            axisZ.title: "Y"
             axisZ.titleVisible: true
             axisZ.labelAutoRotation: 90
 

@@ -3,7 +3,6 @@
 #include <control_msgs/FollowJointTrajectoryAction.h>
 #include <actionlib/client/simple_action_client.h>
 #include "geometry_msgs/PoseArray.h"
-#include "ros/forwards.h"
 #include "ros/publisher.h"
 #include <tomato_detection/BestPos.h>
 #include <message_filters/subscriber.h>
@@ -13,8 +12,11 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <image_geometry/pinhole_camera_model.h>
 #include "sensor_msgs/Image.h"
-#include "tf/transform_datatypes.h"
 #include "Eigen/Dense"
+#include "tf2_ros/buffer.h"
+#include "tf2_ros/transform_listener.h"
+#include <tf2/LinearMath/Transform.h>
+#include "tf2_ros/transform_listener.h"
 
 class VisionManager
 {
@@ -28,7 +30,7 @@ class VisionManager
   ros::NodeHandle m_nh_;
   ros::ServiceClient m_best_pos_client_;
   image_geometry::PinholeCameraModel m_camera_model_;
-  Eigen::Matrix4f stampedTransform2Matrix4f(const tf::StampedTransform&);
+  tf2::Transform stampedTransform2tf2Transform(geometry_msgs::TransformStamped);
 
   using Sync_policy_ =
       message_filters::sync_policies::ApproximateTime<geometry_msgs::PoseArray, sensor_msgs::CameraInfo,
@@ -40,10 +42,18 @@ class VisionManager
 
   std::shared_ptr<message_filters::Synchronizer<Sync_policy_>> m_sync_;
 
+  void setNextPoint(float, float);
+  void goalReachedCallback();
   ros::Publisher m_tomato_position_publisher_;
+  bool m_goal_reached_;
+  tf2_ros::Buffer m_buffer_;
+  tf2_ros::TransformListener* m_tfListener_;
+
 
 public:
   VisionManager(ros::NodeHandle&);
+  void resetTrajectory();
+  bool isGoalReached();
   void createHeadClient();
   void lookUp();
   void scan();
@@ -51,5 +61,4 @@ public:
   void computeDistances(geometry_msgs::PoseArray, sensor_msgs::CameraInfo, sensor_msgs::Image);
   void getBestPosition();
   void startYOLOScan();
-  bool isGoalReached();
 };
