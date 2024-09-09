@@ -37,9 +37,9 @@ Per muoversi tra le pagine basta fare uno swipe con il mouse.
 ## Pagina centrale
 Segmentazione basata sul colore. 
 * **Save** salva i parametri correnti sotto: `VisionConfig/config.toml`
-* **Restore** recupera i valori dallo stesso file
+* **Restore** recupera i valori dallo stesso file<br/>
 **NOTA** Valori buoni per la simulazione ci sono gia' nel file quindi basta
-premere restore per vedere 
+premere restore per vedere la maschera<br/>
 In alto a destra ci sono tab che mostrano diverse visualizzazioni:
 * Camera senza filtri
 * Effetto della maschera sull'immagine
@@ -52,7 +52,7 @@ interattivo.
 ## Pagina di destra
 Pagina dedicata a YOLO. 
 - A sinistra il risultato della detection del modello
-- A destra una visualizzazione 3D dei pomodori.
+- A destra una visualizzazione 3D dei pomodori. <br/>
 **NOTA** Al momento sono ruotati perche' il frame e' sbagliato. <br/>
 La visualizzazione puo' essere ruotata, e zoommata
 
