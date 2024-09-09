@@ -20,7 +20,7 @@ rostopic echo "/tomato_vision_manager/tomato_position"
 ```
 ## Elementi:
 In **Pose.position** c'e' la posizione del pomodoro rispetto al 
-frame: **"torso_fixed_link"** <br/>
+frame: **"base_footprint"** <br/>
 **NOTA** al momento le posizioni sono riferite al frame della camera 
 perche' manca una trasformazione, quindi sono sbagliate. 
 In **Pose.orientation** ci sono altre informazioni:
