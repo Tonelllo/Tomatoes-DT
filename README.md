@@ -21,8 +21,7 @@ rostopic echo "/tomato_vision_manager/tomato_position"
 ## Elementi:
 In **Pose.position** c'e' la posizione del pomodoro rispetto al 
 frame: **"base_footprint"** <br/>
-**NOTA** al momento le posizioni sono riferite al frame della camera 
-perche' manca una trasformazione, quindi sono sbagliate. 
+
 In **Pose.orientation** ci sono altre informazioni:
 * x: La classe del pomodoro
 * y: L'id del pomodoro
@@ -53,7 +52,6 @@ interattivo.
 Pagina dedicata a YOLO. 
 - A sinistra il risultato della detection del modello
 - A destra una visualizzazione 3D dei pomodori. <br/>
-**NOTA** Al momento sono ruotati perche' il frame e' sbagliato. <br/>
 La visualizzazione puo' essere ruotata, e zoommata
 
 # Tomato Gui installazione
