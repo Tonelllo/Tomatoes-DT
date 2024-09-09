@@ -48,6 +48,7 @@ Rectangle {
             horizontalAspectRatio: 1
 
             axisX.title: "X"
+            axisX.reversed: true
             axisX.titleVisible: true
             axisX.labelAutoRotation: 90
 
@@ -56,6 +57,7 @@ Rectangle {
             axisY.labelAutoRotation: 90
 
             axisZ.title: "Y"
+            axisZ.reversed: true
             axisZ.titleVisible: true
             axisZ.labelAutoRotation: 90
 
