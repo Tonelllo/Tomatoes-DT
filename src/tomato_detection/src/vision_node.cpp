@@ -29,7 +29,7 @@ int main(int argc, char* argv[])
     GOTO_BEST,
     COMPUTE_DISTANCES
   };
-  states state = states::COMPUTE_DISTANCES;
+  states state = states::LOOK_UP;
   bool once = true;
   vm.resetTrajectory();
   while (ros::ok())

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <rosparam command="load" file="$(find tiago_moveit_config)/config/sensors_pointcloud.yaml" />
+    <node pkg="octomap_server" type="octomap_server_node" name="octomap_server" output="screen">
+        <param name="frame_id" value="base_footprint" />
+        <param name="resolution" value="0.02" />
+        <remap from="cloud_in" to="/xtion/depth_registered/points" />
+    </node>
+</launch>

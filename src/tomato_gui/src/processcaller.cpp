@@ -8,23 +8,28 @@
 ProcessCaller::ProcessCaller()
 {
   m_modulePath = QString::fromStdString(ros::package::getPath("tomato_gui"));
+  m_homing = new QProcess(this);
+}
+
+ProcessCaller::~ProcessCaller(){
+  delete m_homing;
 }
 
 void ProcessCaller::startHomeMovement()
 {
-  QProcess* homing = new QProcess(this);
-  connect(homing, &QProcess::errorOccurred, this, [homing]() {
-    qCritical() << "Error occured while starting homing script:";
-    qCritical() << homing->errorString();
+  QProcess* m_homing = new QProcess(this);
+  connect(m_homing, &QProcess::errorOccurred, this, [m_homing]() {
+    qCritical() << "Error occured while starting m_homing script:";
+    qCritical() << m_homing->errorString();
   });
-  connect(homing, &QProcess::readyReadStandardOutput, this, [homing, this]() {
-    QString out = homing->readAllStandardOutput();
+  connect(m_homing, &QProcess::readyReadStandardOutput, this, [m_homing, this]() {
+    QString out = m_homing->readAllStandardOutput();
     qDebug() << out;
     setProcessOutput(out);
   });
   QStringList arguments;
   arguments << m_modulePath + "/scripts/tuck_arm.py";
-  homing->start("python", arguments);
+  m_homing->start("python", arguments);
 }
 
 QString ProcessCaller::processOutput() const
