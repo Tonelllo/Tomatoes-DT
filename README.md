@@ -59,3 +59,63 @@ Possibile che manchi questa libreria
 ```bash
 sudo apt install libxcb-cursor-dev
 ```
+# MoveIt
+Prima di poter usare MoveIt con la collision detection ci sono da fare delle
+modifiche ai file di Tiago:<br/>
+Nel file:
+```bash
+<TiagoTutorialsInstallDir>/src/tiago_moveit_config/config/sensors_rgbd.yaml
+```
+Ci sono degli esempi di configurazione di octomap che si basano su diversi tipi di sensore.
+A noi interessa quella che si basa su PointCloud2. Consiglio anzi che modificare questo file
+di crearne un altro dove mettere la nostra configurazione.<br/>
+Creare quindi sempre nella directory `<TiagoTutorialsInstallDir>/src/tiago_moveit_config/config/`
+il file `sensors_pointcloud.yaml` e metterci dentro:
+```yaml
+sensors:
+ - sensor_plugin: occupancy_map_monitor/PointCloudOctomapUpdater
+   point_cloud_topic: /xtion/depth_registered/points
+   max_range: 2.5
+   octomap_resolution: 0.02
+   padding_offset: 0.01
+   padding_scale: 1.0
+   point_subsample: 1
+   filtered_cloud_topic: output_cloud
+```
+Nel file:
+```bash
+<TiagoTutorialsInstallDir>/src/tiago_moveit_config/launch/tiago_moveit_sensor_manager.launch.xml
+```
+Settare la risoluzione dell'octomap a 0.02m:
+```xml
+  <param name="octomap_resolution" type="double" value="0.02" />
+```
+**NOTA** SE si e' creato il nuovo file `sensors_pointcloud.yaml` c'e' da modificare
+la riga del rosparam con:
+```xml
+  <rosparam command="load" file="$(find tiago_moveit_config)/config/sensors_pointcloud.yaml" />
+```
+Alla fine il file `tiago_moveit_sensor_manager.launch.xml` deve apparire come:
+```xml
+<launch>
+
+  <rosparam command="load" file="$(find tiago_moveit_config)/config/sensors_pointcloud.yaml" />
+
+  <param name="octomap_frame" type="string" value="odom" />
+  <param name="octomap_resolution" type="double" value="0.02" />
+  <param name="max_range" type="double" value="5.0" />
+
+</launch>
+```
+Per avere la collision dectection di MoveIt il launch file di agri_challenge va 
+fatto partire settando un parametro aggiuntivo quindi:
+```bash
+roslaunch agri_challenge tiago.launch use_moveit_camera:=true
+```
+# Rviz
+Ho fatto una configurazione di rviz dove ci sono tutte le cose che ci servono.
+Per avere rviz gia settata inserire a riga 31 nel launchfile `tiago.launch` di 
+agri_challenge:
+```xml
+  <include file="$(find tomato_detection)/launch/rviz.launch"/>
+```
