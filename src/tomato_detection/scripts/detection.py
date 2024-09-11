@@ -78,7 +78,7 @@ def callback(data):
                 tomatoes[id] = {"arr": [], "cls": int(label), "id": int(id)}
             else:
                 x, y, w, h = box
-                tomatoes[id]["arr"].insert(0, (x, y))
+                tomatoes[id]["arr"].insert(0, (x, y, w))
                 if len(tomatoes[id]["arr"]) > MAX_HISTORY:
                     tomatoes[id]["arr"].pop()
                     points.append(np.std(tomatoes[id]["arr"], axis=0))
@@ -103,6 +103,7 @@ def callback(data):
                 elem.orientation.y = avg[1]
                 elem.orientation.z = tomatoes[tomato]["cls"]
                 elem.orientation.w = tomatoes[tomato]["id"]
+                elem.position.x = avg[2]  # Horizontal radius in pixels
                 out.poses.append(elem)
                 # out.header = sensor_msgs.msg.Header()
                 out.header.stamp = rospy.Time.now()

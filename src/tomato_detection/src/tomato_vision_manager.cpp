@@ -216,6 +216,8 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
     position.position.x = bodyFixedPoint.x();
     position.position.y = bodyFixedPoint.y();
     position.position.z = bodyFixedPoint.z();
+    // Radius
+    position.orientation.z = (pose.position.x * depth) / m_camera_model_.fx();
     positions.poses.push_back(position);
   }
   // cv::imshow("cane", f32image);
