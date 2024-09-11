@@ -20,13 +20,14 @@ gripper_pub = rospy.Publisher("/parallel_gripper_controller/command", JointTraje
 
 target_offset = 0.18
 approach_offset = 0.40
-effort = 0.7
+effort = 0.3
 
 def closeGripper(tomato_radius):
     command = JointTrajectory()
     command.joint_names = ["gripper_left_finger_joint", "gripper_right_finger_joint"]
 
     point = JointTrajectoryPoint()
+    tomato_radius -= 0.01
     point.positions = [tomato_radius, tomato_radius]
     point.effort = [effort, effort]
     point.time_from_start = rospy.Duration(0.5)
@@ -116,8 +117,10 @@ def poseCallBack(positions):
         if success:
             rospy.loginfo("Approach reached")
             goal_pose.pose.position.x = pose.position.x - target_offset
+            target = [goal_pose.pose]
+            (path, frac) = move_group.compute_cartesian_path(target, 0.01, 0)
             move_group.set_pose_target(goal_pose)
-            success = move_group.go(wait=True)
+            success = move_group.execute(path, wait=True)
             move_group.stop()
             move_group.clear_pose_targets()
 
@@ -129,8 +132,10 @@ def poseCallBack(positions):
 
                 rospy.loginfo("Tomato reached")
                 goal_pose.pose.position.x = pose.position.x - approach_offset
+                target = [goal_pose.pose]
+                (path, frac) = move_group.compute_cartesian_path(target, 0.01, 0)
                 move_group.set_pose_target(goal_pose)
-                success = move_group.go(wait=True)
+                success = move_group.execute(path, wait=True)
                 move_group.stop()
                 move_group.clear_pose_targets()
 
