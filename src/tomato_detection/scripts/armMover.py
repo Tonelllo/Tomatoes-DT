@@ -11,6 +11,7 @@ import copy
 from play_motion_msgs.msg import PlayMotionAction, PlayMotionGoal
 import actionlib
 from visualization_msgs.msg import Marker
+import math
 
 sub = None
 
@@ -19,15 +20,16 @@ gripper_pub = rospy.Publisher("/parallel_gripper_controller/command", JointTraje
 
 target_offset = 0.18
 approach_offset = 0.40
+effort = 0.7
 
-def closeGripper():
+def closeGripper(tomato_radius):
     command = JointTrajectory()
     command.joint_names = ["gripper_left_finger_joint", "gripper_right_finger_joint"]
 
     point = JointTrajectoryPoint()
-    point.positions = [0, 0]
-    point.effort = [1, 1]
-    point.time_from_start = rospy.Duration(1.0)
+    point.positions = [tomato_radius, tomato_radius]
+    point.effort = [effort, effort]
+    point.time_from_start = rospy.Duration(0.5)
 
     command.points.append(point)
     gripper_pub.publish(command)
@@ -38,8 +40,8 @@ def openGripper():
 
     point = JointTrajectoryPoint()
     point.positions = [0.1, 0.1]
-    point.effort = [1, 1]
-    point.time_from_start = rospy.Duration(1.0)
+    point.effort = [effort, effort]
+    point.time_from_start = rospy.Duration(0.5)
 
     command.points.append(point)
     gripper_pub.publish(command)
@@ -67,11 +69,17 @@ def setMarker(pose):
 
 
 def poseCallBack(positions):
-    toReach = copy.deepcopy(positions.poses)
+    toReachTS = copy.deepcopy(positions.poses)
     # print(toReach)
     sub.unregister()
     client = actionlib.SimpleActionClient("play_motion", PlayMotionAction)
+
+    toReach = sorted(toReachTS, key=lambda elem: elem.position.x)
     for pose in toReach:
+
+        if math.isnan(float(pose.position.x)):
+            rospy.logerr("Nan received")
+            continue
 
         goal_pose = PoseStamped()
         goal_pose.header.frame_id = "base_footprint"
@@ -115,8 +123,9 @@ def poseCallBack(positions):
 
 
             if success:
-                closeGripper()
-                rospy.sleep(2)
+                print("Radius: ", pose.orientation.z)
+                closeGripper(pose.orientation.z)
+                rospy.sleep(1)
 
                 rospy.loginfo("Tomato reached")
                 goal_pose.pose.position.x = pose.position.x - approach_offset
@@ -135,7 +144,7 @@ def poseCallBack(positions):
                     rospy.loginfo("Home reached")
 
                     openGripper()
-                    rospy.sleep(2)
+                    rospy.sleep(1)
 
                 else:
                     rospy.loginfo("Planing failed")
@@ -161,7 +170,7 @@ sub = rospy.Subscriber("/tomato_vision_manager/tomato_position",
 
 robot = moveit_commander.RobotCommander()
 names = robot.get_group_names()
-print(names)
+# print(names)
 
 global scene
 scene = moveit_commander.PlanningSceneInterface()

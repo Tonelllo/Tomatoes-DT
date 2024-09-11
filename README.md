@@ -26,6 +26,7 @@ perche' manca una trasformazione, quindi sono sbagliate.
 In **Pose.orientation** ci sono altre informazioni:
 * x: La classe del pomodoro
 * y: L'id del pomodoro
+* z: Il raggio in metri
 Con classe del pomodoro si intende lo stadio di maturazione:
 - 0 -> maturo
 - 1 -> mezzo maturo
