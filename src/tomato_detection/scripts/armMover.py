@@ -13,35 +13,46 @@ import actionlib
 from visualization_msgs.msg import Marker
 import math
 
-sub = None
+
+GROUP_NAME = "arm_torso"
+TARGET_OFFSET = 0.18
+APPROACH_OFFSET = 0.40
+EFFORT = 0.3
 
 marker_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=2)
-gripper_pub = rospy.Publisher("/parallel_gripper_controller/command", JointTrajectory, queue_size=2)
+gripper_pub = rospy.Publisher(
+    "/parallel_gripper_controller/command", JointTrajectory, queue_size=2)
 
-target_offset = 0.18
-approach_offset = 0.40
-effort = 0.3
 
 def closeGripper(tomato_radius):
+    """
+    Close gripper.
+
+    :param float tomato_radius: Radius of the tomato to grab.
+    """
     command = JointTrajectory()
-    command.joint_names = ["gripper_left_finger_joint", "gripper_right_finger_joint"]
+    command.joint_names = ["gripper_left_finger_joint",
+                           "gripper_right_finger_joint"]
 
     point = JointTrajectoryPoint()
     tomato_radius -= 0.01
     point.positions = [tomato_radius, tomato_radius]
-    point.effort = [effort, effort]
+    point.effort = [EFFORT, EFFORT]
     point.time_from_start = rospy.Duration(0.5)
 
     command.points.append(point)
     gripper_pub.publish(command)
 
+
 def openGripper():
+    """Open gripper."""
     command = JointTrajectory()
-    command.joint_names = ["gripper_left_finger_joint", "gripper_right_finger_joint"]
+    command.joint_names = ["gripper_left_finger_joint",
+                           "gripper_right_finger_joint"]
 
     point = JointTrajectoryPoint()
     point.positions = [0.1, 0.1]
-    point.effort = [effort, effort]
+    point.effort = [EFFORT, EFFORT]
     point.time_from_start = rospy.Duration(0.5)
 
     command.points.append(point)
@@ -49,6 +60,11 @@ def openGripper():
 
 
 def setMarker(pose):
+    """
+    Display a marken in the rviz visualization.
+
+    :param Pose pose: Position of the marken in the space.
+    """
     marker = Marker()
     marker.header.frame_id = "base_footprint"
     marker.header.stamp = rospy.Time.now()
@@ -70,6 +86,12 @@ def setMarker(pose):
 
 
 def poseCallBack(positions):
+    """
+    Ros callback for "/tomato_vision_manager/tomato_position" topic.
+
+    :param positions PoseArray: Positions of all the tomatoes with additional
+    information in orientation
+    """
     toReachTS = copy.deepcopy(positions.poses)
     # print(toReach)
     sub.unregister()
@@ -77,7 +99,6 @@ def poseCallBack(positions):
 
     toReach = sorted(toReachTS, key=lambda elem: elem.position.x)
     for pose in toReach:
-
         if math.isnan(float(pose.position.x)):
             rospy.logerr("Nan received")
             continue
@@ -98,17 +119,19 @@ def poseCallBack(positions):
         scene.add_sphere("targetTomato", goal_pose, radius=0.10)
         diff_scene = PlanningScene()
         diff_scene.is_diff = True
-        acm = scene.get_planning_scene(PlanningSceneComponents.ALLOWED_COLLISION_MATRIX).allowed_collision_matrix
+        acm = scene.get_planning_scene(
+            PlanningSceneComponents.ALLOWED_COLLISION_MATRIX).allowed_collision_matrix
         for elem in acm.entry_values:
             elem.enabled.append(True)
         acm.entry_names.append("targetTomato")
-        acm.entry_values.append(AllowedCollisionEntry(enabled=[True] * len(acm.entry_names)))
+        acm.entry_values.append(AllowedCollisionEntry(
+            enabled=[True] * len(acm.entry_names)))
         diff_scene.allowed_collision_matrix = acm
         scene.apply_planning_scene(diff_scene)
 
         rospy.loginfo("Going to tomato %d", pose.orientation.y)
 
-        goal_pose.pose.position.x = pose.position.x - approach_offset
+        goal_pose.pose.position.x = pose.position.x - APPROACH_OFFSET
         move_group.set_pose_target(goal_pose)
         success = move_group.go(wait=True)
         move_group.stop()
@@ -116,7 +139,7 @@ def poseCallBack(positions):
 
         if success:
             rospy.loginfo("Approach reached")
-            goal_pose.pose.position.x = pose.position.x - target_offset
+            goal_pose.pose.position.x = pose.position.x - TARGET_OFFSET
             target = [goal_pose.pose]
             (path, frac) = move_group.compute_cartesian_path(target, 0.01, 0)
             move_group.set_pose_target(goal_pose)
@@ -124,14 +147,13 @@ def poseCallBack(positions):
             move_group.stop()
             move_group.clear_pose_targets()
 
-
             if success:
                 print("Radius: ", pose.orientation.z)
                 closeGripper(pose.orientation.z)
                 rospy.sleep(1)
 
                 rospy.loginfo("Tomato reached")
-                goal_pose.pose.position.x = pose.position.x - approach_offset
+                goal_pose.pose.position.x = pose.position.x - APPROACH_OFFSET
                 target = [goal_pose.pose]
                 (path, frac) = move_group.compute_cartesian_path(target, 0.01, 0)
                 move_group.set_pose_target(goal_pose)
@@ -159,15 +181,11 @@ def poseCallBack(positions):
             rospy.loginfo("Approach failed")
 
 
-
-
-GROUP_NAME = "arm_torso"
-
 # radiants
 # goal_pose.pose.orientation = tf.transformations.from_quaternion_euler(0, 0, 0)
-
 moveit_commander.roscpp_initialize(sys.argv)
 rospy.init_node("positionReacher")
+
 
 sub = rospy.Subscriber("/tomato_vision_manager/tomato_position",
                        PoseArray, poseCallBack)
@@ -175,9 +193,7 @@ sub = rospy.Subscriber("/tomato_vision_manager/tomato_position",
 
 robot = moveit_commander.RobotCommander()
 names = robot.get_group_names()
-# print(names)
 
-global scene
 scene = moveit_commander.PlanningSceneInterface()
 
 move_group = moveit_commander.MoveGroupCommander(GROUP_NAME)
