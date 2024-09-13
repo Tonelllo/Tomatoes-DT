@@ -113,17 +113,17 @@ void VisionManager::setNextPoint(float head_tilt, float time_to_reach)
 
 void VisionManager::lookUp()
 {
-  setNextPoint(20, 5);
+  setNextPoint(20, 3);
 }
 
 void VisionManager::scan()
 {
-  setNextPoint(-30, 10);
+  setNextPoint(-30, 5);
 }
 
 void VisionManager::lookAtBestPosition()
 {
-  setNextPoint(m_best_position_, 5);
+  setNextPoint(m_best_position_, 3);
 }
 
 void VisionManager::startYOLOScan()
