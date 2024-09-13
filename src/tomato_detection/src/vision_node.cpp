@@ -1,8 +1,33 @@
 #include <ros/ros.h>
+#include <atomic>
 #include <boost/variant/detail/visitation_impl.hpp>
 #include "ros/init.h"
 #include "ros/service.h"
+#include "ros/service_server.h"
+#include "std_srvs/EmptyRequest.h"
+#include "std_srvs/EmptyResponse.h"
 #include "tomato_vision_manager.h"
+#include "std_srvs/Empty.h"
+
+namespace
+{
+  enum class States
+  {
+    IDLE,
+    LOOK_UP,
+    SCAN,
+    GOTO_BEST,
+    COMPUTE_DISTANCES
+  };
+
+  std::atomic<States> state(States::IDLE);
+
+  bool stateMachineRestarter(std_srvs::EmptyRequest& req, std_srvs::EmptyResponse& res)
+  {
+    state = States::LOOK_UP;
+    return true;
+  }
+}  // namespace
 
 int main(int argc, char* argv[])
 {
@@ -17,28 +42,21 @@ int main(int argc, char* argv[])
   }
 
   ros::service::waitForService("tomato_counting/get_best_tilt");
+  ros::ServiceServer serv = nh.advertiseService("/tomato_vision_manager/start_scan", stateMachineRestarter);
 
   vm.createHeadClient();
 
   ros::Rate rate(10);
-  enum class states
-  {
-    IDLE,
-    LOOK_UP,
-    SCAN,
-    GOTO_BEST,
-    COMPUTE_DISTANCES
-  };
-  states state = states::LOOK_UP;
+  state = States::LOOK_UP;
   bool once = true;
   vm.resetTrajectory();
   while (ros::ok())
   {
     switch (state)
     {
-      case states::IDLE:
+      case States::IDLE:
         break;
-      case states::LOOK_UP:
+      case States::LOOK_UP:
         if (once)
         {
           ROS_INFO("Looking up");
@@ -49,11 +67,11 @@ int main(int argc, char* argv[])
 
         if (vm.isGoalReached())
         {
-          state = states::SCAN;
+          state = States::SCAN;
           once = true;
         }
         break;
-      case states::SCAN:
+      case States::SCAN:
         if (once)
         {
           ROS_INFO("Scanning");
@@ -66,12 +84,12 @@ int main(int argc, char* argv[])
 
         if (vm.isGoalReached())
         {
-          state = states::GOTO_BEST;
+          state = States::GOTO_BEST;
           once = true;
         }
         break;
 
-      case states::GOTO_BEST:
+      case States::GOTO_BEST:
         if (once)
         {
           ROS_INFO("Going to best position");
@@ -82,17 +100,13 @@ int main(int argc, char* argv[])
 
         if (vm.isGoalReached())
         {
-          state = states::COMPUTE_DISTANCES;
+          state = States::COMPUTE_DISTANCES;
           ROS_INFO("Compute distances");
           once = true;
         }
         break;
-      case states::COMPUTE_DISTANCES:
-        if (once)
-        {
-          // ROS_INFO("Compute distances");
-          once = true;
-        }
+      case States::COMPUTE_DISTANCES:
+        // Keeps Looping
         break;
     }
     ros::spinOnce();
