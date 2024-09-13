@@ -89,17 +89,18 @@ def callback(data):
 
     if mode == Model_used.TRACKING:
         result = model.track(image, persist=True, verbose=False,
-                            tracker=node_path+"custom_botsort.yaml")
+                             tracker=node_path+"custom_botsort.yaml")
     elif mode == Model_used.DETECTION:
         result = model.predict(image, verbose=False)
 
     count = len(result[0].boxes)
     avg_position = [0, 0]
-    for box in result[0].boxes.xywh.cpu():
-        x, y, w, h = box
-        center = getCenter(x, y, w, h)
-        avg_position[0] += center[0]
-        avg_position[1] += center[1]
+    for box, cls in zip(result[0].boxes.xywh.cpu(), result[0].boxes.cls.cpu()):
+        if cls == 0:  # Check if ripe
+            x, y, w, h = box
+            center = getCenter(x, y, w, h)
+            avg_position[0] += center[0]
+            avg_position[1] += center[1]
 
     if len(result[0].boxes) > 0:
         avg_position[0] /= count
