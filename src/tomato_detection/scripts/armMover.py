@@ -1,14 +1,12 @@
 #!/usr/bin/env python
 
 import moveit_commander
-import moveit_msgs.msg
-from geometry_msgs.msg import Pose, PoseStamped
+from geometry_msgs.msg import PoseStamped
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from geometry_msgs.msg import PoseArray
 from moveit_msgs.msg import PlanningScene, AllowedCollisionEntry, PlanningSceneComponents
 import sys
 import rospy
-import tf
 import copy
 from play_motion_msgs.msg import PlayMotionAction, PlayMotionGoal
 import actionlib
@@ -64,6 +62,17 @@ def openGripper():
     gripper_pub.publish(command)
 
 
+def addBasket():
+    """Add the tomato basket to the scene."""
+    box_position = PoseStamped()
+    box_position.header.frame_id = "base_footprint"
+    box_position.pose.position.x = 0.4
+    box_position.pose.position.y = 0
+    box_position.pose.position.z = 0.1
+    box_position.pose.orientation.w = 1.0
+    scene.add_box("tomato_basket", box_position, (0.20, 0.40, 0.20))
+
+
 def setMarker(pose):
     """
     Display a marken in the rviz visualization.
@@ -91,11 +100,24 @@ def setMarker(pose):
 
 
 def getTrajectoryLen(trajectory):
+    """
+    Get the estimated time to complete the trajectory.
+
+    :param trajectory JointTrajectory: Planned trajectory
+    """
     computed = trajectory.joint_trajectory.points
     return computed[-1].time_from_start
 
 
 def disableCollisionsAtTarget(goal_pose):
+    """
+    Disables the collisions in an area defined by a sphere.
+
+    This sphere has a radius of AVOID_COLLISION_SPHERE_RAIDUS.
+    This in order to allow the approach of the arm to the tomato.
+
+    :param goal_pose Pose: Position of the tomato to reach
+    """
     scene.add_sphere("targetTomato", goal_pose,
                      radius=AVOID_COLLISION_SPHERE_RAIDUS)
     diff_scene = PlanningScene()
@@ -112,6 +134,7 @@ def disableCollisionsAtTarget(goal_pose):
 
 
 def removeSphere():
+    """Remove the previously set sphere from the scene."""
     scene.remove_world_object("targetTomato")
     diff_scene = PlanningScene()
     diff_scene.is_diff = True
@@ -278,6 +301,13 @@ last_tomatoes = []
 
 
 def isRipe(tomato):
+    """
+    Return True if the tomato is ripe.
+
+    :param tomato Pose: Position of the tomato to reach
+    :return: True if ripe
+    :rtype: bool
+    """
     if int(tomato.orientation.x) == 0:
         return True
     else:
@@ -285,13 +315,13 @@ def isRipe(tomato):
 
 
 def poseCallBack(positions):
-    global sub
     """
     Ros callback for "/tomato_vision_manager/tomato_position" topic.
 
     :param positions PoseArray: Positions of all the tomatoes with additional
     information in orientation
     """
+    global sub
     toReachTS = copy.deepcopy(positions.poses)
     # print(toReach)
     sub.unregister()
@@ -344,20 +374,16 @@ rospy.init_node("positionReacher")
 sub = rospy.Subscriber("/tomato_vision_manager/tomato_position",
                        PoseArray, poseCallBack)
 
-
 robot = moveit_commander.RobotCommander()
 names = robot.get_group_names()
-
 scene = moveit_commander.PlanningSceneInterface()
-
 move_group = moveit_commander.MoveGroupCommander(GROUP_NAME)
 
-print(move_group.get_planning_frame())
-print(move_group.get_end_effector_link())
+addBasket()
 
+assert move_group.get_planning_frame() == "base_footprint", "Wrong planning frame"
 
 rospy.spin()
 
-
 # TODO s
-# - Plan whiel doing the previous movement
+# - Plan while doing the previous movement
