@@ -211,7 +211,11 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
     // cv::circle(f32image, cv::Point(x, y), 15, cv::Scalar(0, 0, 0), 3);
     // cv::circle(f32image, cv::Point(x, y), 5, cv::Scalar(255, 255, 255), 3);
     float depth = f32image.at<float>(y, x); // NOTE Row, Col
-    ray *= depth;
+
+    // Diameter
+    position.orientation.z = (pose.position.x * depth) / m_camera_model_.fx();
+
+    ray *= depth + position.orientation.z / 2;
     tf2::Vector3 cameraPoint(ray.x, ray.y, ray.z);
     tf2::Vector3 bodyFixedPoint;
 
@@ -220,8 +224,6 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
     position.position.x = bodyFixedPoint.x();
     position.position.y = bodyFixedPoint.y();
     position.position.z = bodyFixedPoint.z();
-    // Radius
-    position.orientation.z = (pose.position.x * depth) / m_camera_model_.fx();
     positions.poses.push_back(position);
   }
   // cv::imshow("cane", f32image);
