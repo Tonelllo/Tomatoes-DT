@@ -113,7 +113,10 @@ def getTrajectoryLen(trajectory):
     :param trajectory JointTrajectory: Planned trajectory
     """
     computed = trajectory.joint_trajectory.points
-    return computed[-1].time_from_start
+    if len(computed) > 0:
+        return computed[-1].time_from_start
+    else:
+        return None
 
 
 def disableCollisionsAtTarget(goal_pose):
@@ -215,6 +218,17 @@ def pickTomato(tomato_id, goal_pose, radius):
 
             l1 = getTrajectoryLen(trajectory1)
             l2 = getTrajectoryLen(trajectory2)
+
+            if l1 is None and l2 is not None:
+                goal_pose = alt_pose
+                success = move_group.execute(trajectory2, wait=True)
+                rospy.loginfo("Arm reversed")
+            elif l2 is None and l1 is not None:
+                success = move_group.execute(trajectory1, wait=True)
+                rospy.loginfo("Arm normal")
+            elif l1 is None and l2 is None:
+                return "plan_fail"
+
 
             if l2 < l1:
                 goal_pose = alt_pose
