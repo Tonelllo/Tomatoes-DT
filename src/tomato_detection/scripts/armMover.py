@@ -9,6 +9,7 @@ import sys
 import rospy
 import copy
 from play_motion_msgs.msg import PlayMotionAction, PlayMotionGoal
+from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
 import actionlib
 from visualization_msgs.msg import Marker
 import math
@@ -16,11 +17,12 @@ from enum import Enum
 
 
 GROUP_NAME = "arm_torso"
-TARGET_OFFSET = 0.18
-APPROACH_OFFSET = 0.28
+TARGET_OFFSET = 0.20
+APPROACH_OFFSET = 0.30
 AVOID_COLLISION_SPHERE_RAIDUS = 0.10
 EFFORT = 0.3
 CARTESIAN_FAILURE_THRESHOLD = 0.9
+OPEN_GRIPPER_POS = 0.05
 
 marker_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=2)
 gripper_pub = rospy.Publisher(
@@ -33,33 +35,36 @@ def closeGripper(tomato_radius):
 
     :param float tomato_radius: Radius of the tomato to grab.
     """
-    command = JointTrajectory()
-    command.joint_names = ["gripper_left_finger_joint",
-                           "gripper_right_finger_joint"]
+    gripper_client.wait_for_server()
+
+    goal = FollowJointTrajectoryGoal()
+    goal.trajectory.joint_names = ["gripper_left_finger_joint", "gripper_right_finger_joint"]
+
+    tomato_radius -= 0.01
 
     point = JointTrajectoryPoint()
-    tomato_radius -= 0.01
     point.positions = [tomato_radius, tomato_radius]
-    point.effort = [EFFORT, EFFORT]
-    point.time_from_start = rospy.Duration(0.5)
+    point.time_from_start = rospy.Duration(1.0)
+    goal.trajectory.points.append(point)
 
-    command.points.append(point)
-    gripper_pub.publish(command)
+    gripper_client.send_goal(goal)
+    gripper_client.wait_for_result()
 
 
 def openGripper():
     """Open gripper."""
-    command = JointTrajectory()
-    command.joint_names = ["gripper_left_finger_joint",
-                           "gripper_right_finger_joint"]
+    gripper_client.wait_for_server()
+
+    goal = FollowJointTrajectoryGoal()
+    goal.trajectory.joint_names = ["gripper_left_finger_joint", "gripper_right_finger_joint"]
 
     point = JointTrajectoryPoint()
-    point.positions = [0.1, 0.1]
-    point.effort = [EFFORT, EFFORT]
-    point.time_from_start = rospy.Duration(0.5)
+    point.positions = [OPEN_GRIPPER_POS, OPEN_GRIPPER_POS]
+    point.time_from_start = rospy.Duration(1.0)
+    goal.trajectory.points.append(point)
 
-    command.points.append(point)
-    gripper_pub.publish(command)
+    gripper_client.send_goal(goal)
+    gripper_client.wait_for_result()
 
 
 def addBasket():
@@ -326,7 +331,7 @@ def poseCallBack(positions):
     # print(toReach)
     sub.unregister()
 
-    toReachTS = filter(isRipe, toReachTS)
+    # toReachTS = filter(isRipe, toReachTS)
     toReach = sorted(toReachTS, key=lambda elem: elem.position.x)
 
     index = 0
@@ -355,7 +360,7 @@ def poseCallBack(positions):
 
         rospy.loginfo("Going to tomato %d", pose.orientation.y)
 
-        ret = pickTomato(pose.orientation.y, goal_pose, pose.orientation.z)
+        ret = pickTomato(pose.orientation.y, goal_pose, pose.orientation.z / 2)
         if ret in ["plan_fail", "nan"]:
             last_tomatoes.append(int(pose.orientation.y))
     else:
@@ -378,6 +383,8 @@ robot = moveit_commander.RobotCommander()
 names = robot.get_group_names()
 scene = moveit_commander.PlanningSceneInterface()
 move_group = moveit_commander.MoveGroupCommander(GROUP_NAME)
+# move_group.set_planner_id("RRTstar") # TODO does nothing
+gripper_client = actionlib.SimpleActionClient("/gripper_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
 
 addBasket()
 

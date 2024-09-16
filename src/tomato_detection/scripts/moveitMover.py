@@ -13,6 +13,7 @@ from visualization_msgs.msg import Marker
 from std_msgs.msg import Header
 import math
 from actionlib import SimpleActionClient
+from play_motion_msgs.msg import PlayMotionAction, PlayMotionGoal
 from moveit_msgs.msg import PickupAction, PickupGoal, Grasp, PlaceGoal, PlaceLocation, GripperTranslation, PlaceAction
 from geometry_msgs.msg import Vector3
 from tf.transformations import quaternion_from_euler, quaternion_multiply
@@ -288,6 +289,8 @@ def create_placings_from_object_pose(posestamped):
     return place_locs
 
 def planPick(goal_pose, tomato_radius):
+    actionlib_client = SimpleActionClient(
+        "play_motion", PlayMotionAction)
     sphere_poses = generate_grasp_poses(goal_pose)
     grasps = create_grasps_from_poses(sphere_poses)
 
@@ -309,12 +312,19 @@ def planPick(goal_pose, tomato_radius):
     pick_client.send_goal(pg)
     pick_client.wait_for_result()
     result = pick_client.get_result()
-    # if result.error_code.val != 1:
-    #     return False
+    if result.error_code.val != 1:
+        rospy.logerr("Failed to find valid grasp for tomato")
+        return False
+        # goal = PlayMotionGoal()
+        # goal.motion_name = "home"
+        # goal.skip_planning = False
+        # actionlib_client.send_goal(goal)
+        # actionlib_client.wait_for_result(rospy.Duration(15.0))
+
 
     place_targ = PoseStamped()
     place_targ.header.frame_id = "base_footprint"
-    place_targ.pose.position.x = 0.2
+    place_targ.pose.position.x = 0.4
     place_targ.pose.position.y = 0.4
     place_targ.pose.position.z = 0.4
     place_targ.pose.orientation.w = 1
@@ -337,8 +347,9 @@ def planPick(goal_pose, tomato_radius):
 
     place_client.wait_for_result()
     result = place_client.get_result()
-    # if result.error_code.val != 1:
-    #     return False
+    if result.error_code.val != 1:
+        rospy.logerror("Failed to find place path")
+        return False
 
     return True
 
@@ -355,7 +366,7 @@ def poseCallBack(positions):
     # print(toReach)
     sub.unregister()
 
-    toReachTS = filter(isRipe, toReachTS)
+    # toReachTS = filter(isRipe, toReachTS)
     toReach = sorted(toReachTS, key=lambda elem: elem.position.x)
 
     index = 0
@@ -384,8 +395,8 @@ def poseCallBack(positions):
         rospy.loginfo("Going to tomato %d", pose.orientation.y)
 
         # TODO pick
-        setTargetTomato(goal_pose, pose.orientation.z)
-        res = planPick(goal_pose, pose.orientation.z)
+        setTargetTomato(goal_pose, pose.orientation.z / 2)
+        res = planPick(goal_pose, pose.orientation.z / 2)
         # removeTargetTomato()
         rospy.sleep(3)
         if not res:
