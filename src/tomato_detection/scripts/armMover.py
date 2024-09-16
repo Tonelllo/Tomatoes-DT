@@ -18,7 +18,7 @@ from enum import Enum
 
 GROUP_NAME = "arm_torso"
 TARGET_OFFSET = 0.20
-APPROACH_OFFSET = 0.30
+APPROACH_OFFSET = 0.35
 AVOID_COLLISION_SPHERE_RAIDUS = 0.10
 EFFORT = 0.3
 CARTESIAN_FAILURE_THRESHOLD = 0.9
@@ -38,7 +38,8 @@ def closeGripper(tomato_radius):
     gripper_client.wait_for_server()
 
     goal = FollowJointTrajectoryGoal()
-    goal.trajectory.joint_names = ["gripper_left_finger_joint", "gripper_right_finger_joint"]
+    goal.trajectory.joint_names = [
+        "gripper_left_finger_joint", "gripper_right_finger_joint"]
 
     tomato_radius -= 0.01
 
@@ -56,7 +57,8 @@ def openGripper():
     gripper_client.wait_for_server()
 
     goal = FollowJointTrajectoryGoal()
-    goal.trajectory.joint_names = ["gripper_left_finger_joint", "gripper_right_finger_joint"]
+    goal.trajectory.joint_names = [
+        "gripper_left_finger_joint", "gripper_right_finger_joint"]
 
     point = JointTrajectoryPoint()
     point.positions = [OPEN_GRIPPER_POS, OPEN_GRIPPER_POS]
@@ -166,6 +168,11 @@ class States(Enum):
     EXECUTING_MOVEMENT = 8
 
 
+def positionCalculator():
+    """Calculates different poses to reach the tomato."""
+    pass
+
+
 def pickTomato(tomato_id, goal_pose, radius):
     """
     State machine that enables the picking of the tomatoes.
@@ -189,7 +196,6 @@ def pickTomato(tomato_id, goal_pose, radius):
             return "home"
 
         elif state == States.PLAN_APPROACH:
-            disableCollisionsAtTarget(goal_pose)
             old_state = state
             rospy.loginfo("Planning approach for tomato [%d]", tomato_id)
             goal_pose.pose.position.x -= APPROACH_OFFSET
@@ -228,6 +234,7 @@ def pickTomato(tomato_id, goal_pose, radius):
             goal_pose.pose.position.x += APPROACH_OFFSET
 
         elif state == States.PLAN_PICK:
+            disableCollisionsAtTarget(goal_pose)
             rospy.sleep(1.0)
             old_state = state
             rospy.loginfo("Planning pick for tomato [%d]", tomato_id)
@@ -331,7 +338,7 @@ def poseCallBack(positions):
     # print(toReach)
     sub.unregister()
 
-    # toReachTS = filter(isRipe, toReachTS)
+    toReachTS = filter(isRipe, toReachTS)
     toReach = sorted(toReachTS, key=lambda elem: elem.position.x)
 
     index = 0
@@ -384,7 +391,8 @@ names = robot.get_group_names()
 scene = moveit_commander.PlanningSceneInterface()
 move_group = moveit_commander.MoveGroupCommander(GROUP_NAME)
 # move_group.set_planner_id("RRTstar") # TODO does nothing
-gripper_client = actionlib.SimpleActionClient("/gripper_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
+gripper_client = actionlib.SimpleActionClient(
+    "/gripper_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
 
 addBasket()
 
