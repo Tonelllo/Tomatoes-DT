@@ -20,12 +20,14 @@ import numpy as np
 
 
 GROUP_NAME = "arm_torso"
-TARGET_OFFSET = 0.20
-APPROACH_OFFSET = 0.30
-AVOID_COLLISION_SPHERE_RAIDUS = 0.10
+TARGET_OFFSET = 0.21
+APPROACH_OFFSET = 0.28
+AVOID_COLLISION_SPHERE_RAIDUS = 0.05
 EFFORT = 0.3
-CARTESIAN_FAILURE_THRESHOLD = 0.9
+CARTESIAN_FAILURE_THRESHOLD = 0.7
 OPEN_GRIPPER_POS = 0.05
+DISTANCE_THRESHOLD = 0.05
+PLANNING_TIMEOUT = 0.9
 
 marker_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=2)
 gripper_pub = rospy.Publisher(
@@ -122,7 +124,7 @@ def getTrajectoryLen(trajectory):
         return None
 
 
-def disableCollisionsAtTarget(goal_pose):
+def disableCollisionsAtTarget(goal_pose, radius):
     """
     Disables the collisions in an area defined by a sphere.
 
@@ -131,15 +133,14 @@ def disableCollisionsAtTarget(goal_pose):
 
     :param goal_pose Pose: Position of the tomato to reach
     """
-    scene.add_sphere("targetTomato", goal_pose,
-                     radius=AVOID_COLLISION_SPHERE_RAIDUS)
+    scene.add_sphere("noCollisions", goal_pose, AVOID_COLLISION_SPHERE_RAIDUS)
     diff_scene = PlanningScene()
     diff_scene.is_diff = True
     acm = scene.get_planning_scene(
         PlanningSceneComponents.ALLOWED_COLLISION_MATRIX).allowed_collision_matrix
     for elem in acm.entry_values:
         elem.enabled.append(True)
-    acm.entry_names.append("targetTomato")
+    acm.entry_names.append("noCollisions")
     acm.entry_values.append(AllowedCollisionEntry(
         enabled=[True] * len(acm.entry_names)))
     diff_scene.allowed_collision_matrix = acm
@@ -148,7 +149,7 @@ def disableCollisionsAtTarget(goal_pose):
 
 def removeSphere():
     """Remove the previously set sphere from the scene."""
-    scene.remove_world_object("targetTomato")
+    scene.remove_world_object("noCollisions")
     diff_scene = PlanningScene()
     diff_scene.is_diff = True
     acm = scene.get_planning_scene(
@@ -159,6 +160,7 @@ def removeSphere():
     acm.entry_values.pop()
     diff_scene.allowed_collision_matrix = acm
     scene.apply_planning_scene(diff_scene)
+    rospy.sleep(2)
 
 
 class States(Enum):
@@ -207,7 +209,7 @@ def quaternion_from_vectors(v0, v1):
     return q
 
 
-def generate_grasp_poses(object_pose, radius = APPROACH_OFFSET):
+def generate_grasp_poses(object_pose, radius=APPROACH_OFFSET):
     # Compute all the points of the sphere with step X
     # http://math.stackexchange.com/questions/264686/how-to-find-the-3d-coordinates-on-a-celestial-spheres-surface
     ori_x = 0.0
@@ -300,6 +302,7 @@ def pickTomato(tomato_id, goal_pose, radius):
             gf = np.flip(gf)
             ordered_gposes = [gval for gpair in zip(gf, gs) for gval in gpair]
 
+
             plans = []
             count = 0
             for pose, gpos in zip(ordered_poses, ordered_gposes):
@@ -318,14 +321,14 @@ def pickTomato(tomato_id, goal_pose, radius):
                 (success, trajectory, time, error) = actual_plan
                 if not success:
                     continue
+                disableCollisionsAtTarget(goal_pose, radius)  # This is ok as is
                 move_group.execute(trajectory, wait=True)
-                if success:
-                    found = True
-                    l_approach_pose = copy.deepcopy(generating_pose)
-                    l_pick_pose = copy.deepcopy(pick_pose)
-                    rospy.logwarn("Planning approach SUCCESS")
-                    state = States.EXECUTING_MOVEMENT
-                    break
+                found = True
+                l_approach_pose = copy.deepcopy(generating_pose)
+                l_pick_pose = copy.deepcopy(pick_pose)
+                rospy.logwarn("Planning approach SUCCESS")
+                state = States.EXECUTING_MOVEMENT
+                break
 
             if not found:
                 return "plan_fail"
@@ -333,8 +336,7 @@ def pickTomato(tomato_id, goal_pose, radius):
             # goal_pose.pose.position.x += APPROACH_OFFSET
 
         elif state == States.PLAN_PICK:
-            disableCollisionsAtTarget(goal_pose) # This is ok as is
-            rospy.sleep(1.0)
+            # rospy.sleep(1.0)
             old_state = state
             rospy.loginfo("Planning pick for tomato [%d]", tomato_id)
             target = [l_pick_pose]
@@ -355,7 +357,7 @@ def pickTomato(tomato_id, goal_pose, radius):
             old_state = state
             rospy.loginfo("Planning grab for tomato [%d]", tomato_id)
             closeGripper(radius)
-            rospy.sleep(1)
+            # rospy.sleep(1)
             # TODO how to check if grab was successful
             state = States.PLAN_BACK
 
@@ -383,10 +385,12 @@ def pickTomato(tomato_id, goal_pose, radius):
             goal.motion_name = "home"
             goal.skip_planning = False
             actionlib_client.send_goal(goal)
-            actionlib_client.wait_for_result(rospy.Duration(15.0))
+            success = actionlib_client.wait_for_result(rospy.Duration(15.0))
             rospy.loginfo("HOME reached")
             # TODO What if it fails?
-            state = States.PLAN_RELEASE
+            state = States.EXECUTING_MOVEMENT
+            if not success:
+                rospy.logfatal("Home not reachable")
 
         elif state == States.PLAN_RELEASE:
             old_state = state
@@ -420,6 +424,15 @@ def isRipe(tomato):
         return False
 
 
+def checkDistanceUnderThreshold(new_elem):
+    for tomato in last_tomatoes:
+        distance = np.linalg.norm(np.array(
+            [new_elem.position.x, new_elem.position.y, new_elem.position.z]) - tomato)
+        if distance < DISTANCE_THRESHOLD:
+            return True
+    return False
+
+
 def poseCallBack(positions):
     """
     Ros callback for "/tomato_vision_manager/tomato_position" topic.
@@ -436,7 +449,7 @@ def poseCallBack(positions):
     toReach = sorted(toReachTS, key=lambda elem: elem.position.x)
 
     index = 0
-    while index < len(toReach) and int(toReach[index].orientation.y) in last_tomatoes:
+    while index < len(toReach) and checkDistanceUnderThreshold(toReach[index]):
         index += 1
 
     if index == len(toReach):
@@ -463,7 +476,8 @@ def poseCallBack(positions):
 
         ret = pickTomato(pose.orientation.y, goal_pose, pose.orientation.z / 2)
         if ret in ["plan_fail", "nan"]:
-            last_tomatoes.append(int(pose.orientation.y))
+            last_tomatoes.append(
+                np.array([goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z]))
     else:
         rospy.error("Received NaN")
 
@@ -484,6 +498,7 @@ robot = moveit_commander.RobotCommander()
 names = robot.get_group_names()
 scene = moveit_commander.PlanningSceneInterface()
 move_group = moveit_commander.MoveGroupCommander(GROUP_NAME)
+move_group.set_planning_time(PLANNING_TIMEOUT)
 # move_group.set_planner_id("RRTstar") # TODO does nothing
 gripper_client = actionlib.SimpleActionClient(
     "/gripper_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
