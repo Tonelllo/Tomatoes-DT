@@ -1,7 +1,7 @@
 # Run
 Per fare andare il simulatore:
 ```bash
-roslaunch agri_challenge tiago.launch
+roslaunch agri_challenge tiago.launch use_moveit_camera:=true
 ```
 Per fare andare la parte di visione
 ```bash
