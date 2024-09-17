@@ -20,8 +20,7 @@ from geometry_msgs.msg import Vector3
 from tf.transformations import quaternion_from_euler, quaternion_multiply
 from tf.transformations import euler_from_quaternion
 import numpy as np
-
-
+from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
 
 
 GROUP_NAME = "arm_torso"
@@ -30,6 +29,7 @@ APPROACH_OFFSET = 0.28
 AVOID_COLLISION_SPHERE_RADIUS = 0.10
 EFFORT = 0.3
 CARTESIAN_FAILURE_THRESHOLD = 0.9
+OPEN_GRIPPER_POS = 0.05
 
 marker_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=2)
 gripper_pub = rospy.Publisher(
@@ -307,6 +307,24 @@ def create_placings_from_object_pose(posestamped):
 
     return place_locs
 
+
+def openGripper():
+    """Open gripper."""
+    gripper_client.wait_for_server()
+
+    goal = FollowJointTrajectoryGoal()
+    goal.trajectory.joint_names = [
+        "gripper_left_finger_joint", "gripper_right_finger_joint"]
+
+    point = JointTrajectoryPoint()
+    point.positions = [OPEN_GRIPPER_POS, OPEN_GRIPPER_POS]
+    point.time_from_start = rospy.Duration(1.0)
+    goal.trajectory.points.append(point)
+
+    gripper_client.send_goal(goal)
+    gripper_client.wait_for_result()
+
+
 def planPick(goal_pose, tomato_radius):
     actionlib_client = SimpleActionClient(
         "play_motion", PlayMotionAction)
@@ -340,35 +358,21 @@ def planPick(goal_pose, tomato_radius):
         # actionlib_client.send_goal(goal)
         # actionlib_client.wait_for_result(rospy.Duration(15.0))
 
+    joints = move_group.get_current_joint_values()
+    joints[0] = 0.10
+    joints[1] = 1.47
+    joints[2] = 0.16
+    joints[3] = 0.0
+    joints[4] = 2.22
+    joints[5] = -1.9
+    joints[6] = -0.48
+    joints[7] = -1.39
 
-    place_targ = PoseStamped()
-    place_targ.header.frame_id = "base_footprint"
-    place_targ.pose.position.x = 0.6
-    place_targ.pose.position.y = 0.5
-    place_targ.pose.position.z = 0.7
-    place_targ.pose.orientation.w = 1
+    move_group.set_joint_value_target(joints)
+    move_group.go(wait=True)
+    scene.remove_attached_object(move_group.get_end_effector_link(), "target_tomato")
 
-    placeg = PlaceGoal()
-    placeg.group_name = "arm_torso"
-    placeg.attached_object_name = "target_tomato"
-    place_locations = create_placings_from_object_pose(place_targ)
-    placeg.place_locations = place_locations
-    placeg.allowed_planning_time = 15.0
-    placeg.planning_options.planning_scene_diff.is_diff = True
-    placeg.planning_options.planning_scene_diff.robot_state.is_diff = True
-    placeg.planning_options.plan_only = False
-    placeg.planning_options.replan = True
-    placeg.planning_options.replan_attempts = 3
-    placeg.allowed_touch_objects = ['<octomap>', "noCollisions"]
-    placeg.allowed_touch_objects.extend(links_to_allow_contact)
-
-    place_client.send_goal(placeg)
-
-    place_client.wait_for_result()
-    result = place_client.get_result()
-    if result.error_code.val != 1:
-        rospy.logerr("Failed to find place path")
-        return False
+    openGripper()
 
     return True
 
@@ -438,11 +442,22 @@ names = robot.get_group_names()
 scene = moveit_commander.PlanningSceneInterface()
 move_group = moveit_commander.MoveGroupCommander(GROUP_NAME)
 
+gripper_client = SimpleActionClient(
+    "/gripper_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
+
 pick_client = SimpleActionClient("/pickup", PickupAction)
 place_client = SimpleActionClient("/place", PlaceAction)
 rospy.loginfo("Wating for action server")
 pick_client.wait_for_server()
 rospy.loginfo("Action server started")
+
+# pp = PoseArray()
+# p = Pose()
+# p.position.x = 0.9
+# p.position.y = 0.0
+# p.position.z = 0.9
+# pp.poses.append(p)
+# poseCallBack(pp)
 
 sub = rospy.Subscriber("/tomato_vision_manager/tomato_position",
                        PoseArray, poseCallBack)

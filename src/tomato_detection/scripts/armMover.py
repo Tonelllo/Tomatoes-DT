@@ -17,8 +17,6 @@ from visualization_msgs.msg import Marker
 import math
 from enum import Enum
 import numpy as np
-import queue
-import concurrent.futures
 
 GROUP_NAME = "arm_torso"
 TARGET_OFFSET = 0.21
@@ -28,7 +26,7 @@ EFFORT = 0.3
 CARTESIAN_FAILURE_THRESHOLD = 0.7
 OPEN_GRIPPER_POS = 0.05
 DISTANCE_THRESHOLD = 0.05
-PLANNING_TIMEOUT = 1.0
+PLANNING_TIMEOUT = 0.5
 
 marker_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=2)
 gripper_pub = rospy.Publisher(
@@ -134,7 +132,6 @@ def disableCollisionsAtTarget(goal_pose, radius):
 
     :param goal_pose Pose: Position of the tomato to reach
     """
-    scene.add_sphere("tomato_target", goal_pose, radius)
     scene.add_sphere("noCollisions", goal_pose, AVOID_COLLISION_SPHERE_RAIDUS)
     diff_scene = PlanningScene()
     diff_scene.is_diff = True
@@ -381,6 +378,9 @@ def pickTomato(tomato_id, goal_pose, radius):
             move_group.set_pose_target(l_approach_pose)
             success = move_group.execute(path, wait=True)
 
+            if frac < CARTESIAN_FAILURE_THRESHOLD:
+                rospy.logwart("back not executed")
+
             # Here in any case you go back home
             if success:
                 rospy.loginfo("Planning back SUCCESS")
@@ -393,12 +393,18 @@ def pickTomato(tomato_id, goal_pose, radius):
             removeSphere()
             old_state = state
             rospy.loginfo("Planning approach for HOME")
-            goal = PlayMotionGoal()
-            goal.motion_name = "home"
-            goal.skip_planning = False
-            actionlib_client.send_goal(goal)
-            success = actionlib_client.wait_for_result(rospy.Duration(15.0))
-            rospy.loginfo("HOME reached")
+            joints = move_group.get_current_joint_values()
+            joints[0] = 0.10
+            joints[1] = 1.47
+            joints[2] = 0.16
+            joints[3] = 0.0
+            joints[4] = 2.22
+            joints[5] = -1.9
+            joints[6] = -0.48
+            joints[7] = -1.39
+
+            move_group.set_joint_value_target(joints)
+            success = move_group.go(wait=True)
             # TODO What if it fails?
             state = States.EXECUTING_MOVEMENT
             if not success:
