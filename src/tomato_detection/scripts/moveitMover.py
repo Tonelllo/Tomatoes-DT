@@ -15,6 +15,7 @@ import math
 from actionlib import SimpleActionClient
 from play_motion_msgs.msg import PlayMotionAction, PlayMotionGoal
 from moveit_msgs.msg import PickupAction, PickupGoal, Grasp, PlaceGoal, PlaceLocation, GripperTranslation, PlaceAction
+from moveit_msgs.msg import PlanningScene, AllowedCollisionEntry, PlanningSceneComponents
 from geometry_msgs.msg import Vector3
 from tf.transformations import quaternion_from_euler, quaternion_multiply
 from tf.transformations import euler_from_quaternion
@@ -26,7 +27,7 @@ import numpy as np
 GROUP_NAME = "arm_torso"
 TARGET_OFFSET = 0.18
 APPROACH_OFFSET = 0.28
-AVOID_COLLISION_SPHERE_RAIDUS = 0.10
+AVOID_COLLISION_SPHERE_RADIUS = 0.10
 EFFORT = 0.3
 CARTESIAN_FAILURE_THRESHOLD = 0.9
 
@@ -50,18 +51,40 @@ def setTargetTomato(goal_pose, radius):
     """
     Disables the collisions in an area defined by a sphere.
 
-    This sphere has a radius of AVOID_COLLISION_SPHERE_RAIDUS.
+    This sphere has a radius of AVOID_COLLISION_SPHERE_RADIUS.
     This in order to allow the approach of the arm to the tomato.
 
     :param goal_pose Pose: Position of the tomato to reach
     """
     scene.add_sphere("target_tomato", goal_pose, radius)
+    scene.add_sphere("noCollisions", goal_pose, AVOID_COLLISION_SPHERE_RADIUS)
+    diff_scene = PlanningScene()
+    diff_scene.is_diff = True
+    acm = scene.get_planning_scene(
+        PlanningSceneComponents.ALLOWED_COLLISION_MATRIX).allowed_collision_matrix
+    for elem in acm.entry_values:
+        elem.enabled.append(True)
+    acm.entry_names.append("noCollisions")
+    acm.entry_values.append(AllowedCollisionEntry(
+        enabled=[True] * len(acm.entry_names)))
+    diff_scene.allowed_collision_matrix = acm
+    scene.apply_planning_scene(diff_scene)
     rospy.loginfo("Added sphere")
 
 
 def removeTargetTomato():
     """Remove the previously set sphere from the scene."""
     scene.remove_world_object("target_tomato")
+    diff_scene = PlanningScene()
+    diff_scene.is_diff = True
+    acm = scene.get_planning_scene(
+        PlanningSceneComponents.ALLOWED_COLLISION_MATRIX).allowed_collision_matrix
+    for elem in acm.entry_values:
+        elem.enabled.pop()
+    acm.entry_names.pop()
+    acm.entry_values.pop()
+    diff_scene.allowed_collision_matrix = acm
+    scene.apply_planning_scene(diff_scene)
     rospy.loginfo("Removed sphere")
 
 
@@ -122,15 +145,11 @@ def generate_grasp_poses(object_pose):
     sphere_poses = []
     rotated_q = quaternion_from_euler(0.0, 0.0, math.radians(180))
 
-    # max - min / step
-    yaw_qtty = int((360 - 0) / 20)  # NOQA
-    pitch_qtty = int((360 - 0) / 20)  # NOQA
-
     # altitude is yaw
-    for altitude in range(0, 360, 20):  # NOQA
+    for altitude in range(120, 240, 20):  # NOQA
         altitude = math.radians(altitude)
         # azimuth is pitch
-        for azimuth in range(0, 360, 20):  # NOQA
+        for azimuth in range(-60, 60, 20):  # NOQA
             azimuth = math.radians(azimuth)
             # This gets all the positions
             x = ori_x + radius * math.cos(azimuth) * math.cos(altitude)
@@ -305,7 +324,7 @@ def planPick(goal_pose, tomato_radius):
     pg.planning_options.replan = True
     pg.planning_options.replan_attempts = 3  # 10
     pg.allowed_touch_objects = []
-    pg.attached_object_touch_links = ['<octomap>']
+    pg.attached_object_touch_links = ['<octomap>', "noCollisions"]
     links_to_allow_contact = ["gripper_left_finger_link", "gripper_right_finger_link", "gripper_link"]
     pg.attached_object_touch_links.extend(links_to_allow_contact)
 
@@ -314,7 +333,7 @@ def planPick(goal_pose, tomato_radius):
     result = pick_client.get_result()
     if result.error_code.val != 1:
         rospy.logerr("Failed to find valid grasp for tomato")
-        return False
+        # return False
         # goal = PlayMotionGoal()
         # goal.motion_name = "home"
         # goal.skip_planning = False
@@ -324,9 +343,9 @@ def planPick(goal_pose, tomato_radius):
 
     place_targ = PoseStamped()
     place_targ.header.frame_id = "base_footprint"
-    place_targ.pose.position.x = 0.4
-    place_targ.pose.position.y = 0.4
-    place_targ.pose.position.z = 0.4
+    place_targ.pose.position.x = 0.6
+    place_targ.pose.position.y = 0.5
+    place_targ.pose.position.z = 0.7
     place_targ.pose.orientation.w = 1
 
     placeg = PlaceGoal()
@@ -340,7 +359,7 @@ def planPick(goal_pose, tomato_radius):
     placeg.planning_options.plan_only = False
     placeg.planning_options.replan = True
     placeg.planning_options.replan_attempts = 3
-    placeg.allowed_touch_objects = ['<octomap>']
+    placeg.allowed_touch_objects = ['<octomap>', "noCollisions"]
     placeg.allowed_touch_objects.extend(links_to_allow_contact)
 
     place_client.send_goal(placeg)
@@ -348,7 +367,7 @@ def planPick(goal_pose, tomato_radius):
     place_client.wait_for_result()
     result = place_client.get_result()
     if result.error_code.val != 1:
-        rospy.logerror("Failed to find place path")
+        rospy.logerr("Failed to find place path")
         return False
 
     return True
