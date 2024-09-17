@@ -18,19 +18,33 @@ printf "${CY}Creating release build${NC}\n"
 
 cd ../releaseBuild
 
+mkdir -p gui/scripts/
+mkdir -p gui/VisionConfig/
+
+cp ~/Tomatoes/src/tomato_gui/scripts/tuck_arm.py ./gui/scripts
+cp ~/Tomatoes/src/tomato_gui/VisionConfig/config.toml ./gui/VisionConfig
+
+printf "${CY} Copyed necessary files ${NC}\n"
+
 printf "${CY}Creating ZIP{NC}\n"
 
 zip -r gui.zip gui/
 
-printf "${CY}Getting latest release tag${NC}\n"
+read -p "Deploy to GitHub?" -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]
+then
+    printf "${CY}Getting latest release tag${NC}\n"
 
-releaseList=$(gh release list --limit 1)
-[[ $releaseList =~ v[0-9]* ]]
-previousVersion="${BASH_REMATCH:1}"
+    releaseList=$(gh release list --limit 1)
+    [[ $releaseList =~ v[0-9]* ]]
+    previousVersion="${BASH_REMATCH:1}"
 
-printf "${CY}Old release tag was: $previousVersion ${NC}\n"
+    printf "${CY}Old release tag was: $previousVersion ${NC}\n"
 
-newVersion=v$(($previousVersion+1))
+    newVersion=v$(($previousVersion+1))
 
-printf "${CY}Uploading new release${NC}\n"
-gh release create $newVersion --title rolling --notes "See Assets for zip. You will find the app inside /bin" --target master ./gui.zip
+    printf "${CY}Uploading new release${NC}\n"
+    gh release create $newVersion --title rolling --notes "See Assets for zip. You will find the app inside /bin" --target master ./gui.zip
+
+fi

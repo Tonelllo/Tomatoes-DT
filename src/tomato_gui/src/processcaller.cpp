@@ -4,14 +4,21 @@
 #include <qprocess.h>
 #include <QProcess>
 #include <ros/package.h>
+#include <QCoreApplication>
 
 ProcessCaller::ProcessCaller()
 {
   m_modulePath = QString::fromStdString(ros::package::getPath("tomato_gui"));
+  if (m_modulePath.isEmpty())
+  {
+    qDebug() << "tomato_gui not present defaulting to local directory";
+    m_modulePath = QCoreApplication::applicationDirPath()+"/..";
+  }
   m_homing = new QProcess(this);
 }
 
-ProcessCaller::~ProcessCaller(){
+ProcessCaller::~ProcessCaller()
+{
   delete m_homing;
 }
 

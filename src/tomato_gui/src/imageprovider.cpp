@@ -17,6 +17,7 @@
 #include "ros/forwards.h"
 #include "sensor_msgs/Image.h"
 #include "sensor_msgs/image_encodings.h"
+#include <QCoreApplication>
 
 ImageProvider::ImageProvider(ros::NodeHandle& nh, QObject* parent) : m_image_transport(nh), m_yolo_transport(nh)
 {
@@ -24,6 +25,12 @@ ImageProvider::ImageProvider(ros::NodeHandle& nh, QObject* parent) : m_image_tra
   m_yolo_sub = m_image_transport.subscribe("tomato_detection/detection_result", 1, &ImageProvider::yoloCallback, this);
   m_nh = nh;
   QString modulePath = QString::fromStdString(ros::package::getPath("tomato_gui"));
+  if (modulePath.isEmpty())
+  {
+    qDebug() << "tomato_gui not present defaulting to local directory";
+    modulePath = QCoreApplication::applicationDirPath()+"/..";
+  }
+
   if (!QDir(modulePath + "/VisionConfig").exists())
   {
     QDir().mkdir(modulePath + "/VisionConfig");
@@ -125,6 +132,10 @@ void ImageProvider::saveSettings()
 
 void ImageProvider::restoreSettings()
 {
+  if(!QFile::exists(m_savePath)){
+    qDebug() << "File toml not found, save one first";
+    return;
+  }
   toml::table toRestore = toml::parse_file(m_savePath.toStdString());
 
   uint hueMin = toRestore["hue"]["min"].value_or(ERROR_VAL);
@@ -368,12 +379,12 @@ void ImageProvider::setSavePath(const QString& newSavePath)
   emit savePathChanged();
 }
 
-QVideoSink *ImageProvider::yoloSink() const
+QVideoSink* ImageProvider::yoloSink() const
 {
   return m_yoloSink;
 }
 
-void ImageProvider::setYoloSink(QVideoSink *newYoloSink)
+void ImageProvider::setYoloSink(QVideoSink* newYoloSink)
 {
   if (m_yoloSink == newYoloSink)
     return;
@@ -381,6 +392,7 @@ void ImageProvider::setYoloSink(QVideoSink *newYoloSink)
   emit yoloSinkChanged();
 }
 
-ros::NodeHandle ImageProvider::getNodeHandle() {
+ros::NodeHandle ImageProvider::getNodeHandle()
+{
   return m_nh;
 }
