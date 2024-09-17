@@ -1,28 +1,32 @@
 #!/usr/bin/env python
 
 import moveit_commander
-import moveit_msgs.msg
-from geometry_msgs.msg import Pose, PoseStamped
+from geometry_msgs.msg import PoseStamped
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
-from geometry_msgs.msg import PoseArray
+from geometry_msgs.msg import PoseArray, Quaternion
 from moveit_msgs.msg import PlanningScene, AllowedCollisionEntry, PlanningSceneComponents
+from geometry_msgs.msg import Point, Pose
 import sys
 import rospy
-import tf
 import copy
 from play_motion_msgs.msg import PlayMotionAction, PlayMotionGoal
+from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
 import actionlib
+from tf.transformations import quaternion_from_euler, quaternion_multiply, euler_from_quaternion
 from visualization_msgs.msg import Marker
 import math
 from enum import Enum
-
+import numpy as np
 
 GROUP_NAME = "arm_torso"
-TARGET_OFFSET = 0.18
+TARGET_OFFSET = 0.21
 APPROACH_OFFSET = 0.28
-AVOID_COLLISION_SPHERE_RAIDUS = 0.10
+AVOID_COLLISION_SPHERE_RAIDUS = 0.1
 EFFORT = 0.3
-CARTESIAN_FAILURE_THRESHOLD = 0.9
+CARTESIAN_FAILURE_THRESHOLD = 0.7
+OPEN_GRIPPER_POS = 0.05
+DISTANCE_THRESHOLD = 0.05
+PLANNING_TIMEOUT = 0.5
 
 marker_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=2)
 gripper_pub = rospy.Publisher(
@@ -35,33 +39,49 @@ def closeGripper(tomato_radius):
 
     :param float tomato_radius: Radius of the tomato to grab.
     """
-    command = JointTrajectory()
-    command.joint_names = ["gripper_left_finger_joint",
-                           "gripper_right_finger_joint"]
+    gripper_client.wait_for_server()
+
+    goal = FollowJointTrajectoryGoal()
+    goal.trajectory.joint_names = [
+        "gripper_left_finger_joint", "gripper_right_finger_joint"]
+
+    tomato_radius -= 0.01
 
     point = JointTrajectoryPoint()
-    tomato_radius -= 0.01
     point.positions = [tomato_radius, tomato_radius]
-    point.effort = [EFFORT, EFFORT]
-    point.time_from_start = rospy.Duration(0.5)
+    point.time_from_start = rospy.Duration(1.0)
+    goal.trajectory.points.append(point)
 
-    command.points.append(point)
-    gripper_pub.publish(command)
+    gripper_client.send_goal(goal)
+    gripper_client.wait_for_result()
 
 
 def openGripper():
     """Open gripper."""
-    command = JointTrajectory()
-    command.joint_names = ["gripper_left_finger_joint",
-                           "gripper_right_finger_joint"]
+    gripper_client.wait_for_server()
+
+    goal = FollowJointTrajectoryGoal()
+    goal.trajectory.joint_names = [
+        "gripper_left_finger_joint", "gripper_right_finger_joint"]
 
     point = JointTrajectoryPoint()
-    point.positions = [0.1, 0.1]
-    point.effort = [EFFORT, EFFORT]
-    point.time_from_start = rospy.Duration(0.5)
+    point.positions = [OPEN_GRIPPER_POS, OPEN_GRIPPER_POS]
+    point.time_from_start = rospy.Duration(1.0)
+    goal.trajectory.points.append(point)
 
-    command.points.append(point)
-    gripper_pub.publish(command)
+    gripper_client.send_goal(goal)
+    gripper_client.wait_for_result()
+
+
+def addBasket():
+    """Add the tomato basket to the scene."""
+    box_position = PoseStamped()
+    box_position.header.frame_id = "base_footprint"
+    box_position.pose.position.x = 0.4
+    box_position.pose.position.y = 0
+    box_position.pose.position.z = 0.1
+    box_position.pose.orientation.w = 1.0
+    scene.add_box("tomato_basket", box_position, (0.20, 0.40, 0.20))
 
 
 def setMarker(pose):
@@ -91,20 +111,35 @@ def setMarker(pose):
 
 
 def getTrajectoryLen(trajectory):
+    """
+    Get the estimated time to complete the trajectory.
+
+    :param trajectory JointTrajectory: Planned trajectory
+    """
     computed = trajectory.joint_trajectory.points
-    return computed[-1].time_from_start
+    if len(computed) > 0:
+        return computed[-1].time_from_start
+    else:
+        return None
 
 
-def disableCollisionsAtTarget(goal_pose):
-    scene.add_sphere("targetTomato", goal_pose,
-                     radius=AVOID_COLLISION_SPHERE_RAIDUS)
+def disableCollisionsAtTarget(goal_pose, radius):
+    """
+    Disables the collisions in an area defined by a sphere.
+
+    This sphere has a radius of AVOID_COLLISION_SPHERE_RAIDUS.
+    This in order to allow the approach of the arm to the tomato.
+
+    :param goal_pose Pose: Position of the tomato to reach
+    """
+    scene.add_sphere("noCollisions", goal_pose, AVOID_COLLISION_SPHERE_RAIDUS)
     diff_scene = PlanningScene()
     diff_scene.is_diff = True
     acm = scene.get_planning_scene(
         PlanningSceneComponents.ALLOWED_COLLISION_MATRIX).allowed_collision_matrix
     for elem in acm.entry_values:
         elem.enabled.append(True)
-    acm.entry_names.append("targetTomato")
+    acm.entry_names.append("noCollisions")
     acm.entry_values.append(AllowedCollisionEntry(
         enabled=[True] * len(acm.entry_names)))
     diff_scene.allowed_collision_matrix = acm
@@ -112,7 +147,8 @@ def disableCollisionsAtTarget(goal_pose):
 
 
 def removeSphere():
-    scene.remove_world_object("targetTomato")
+    """Remove the previously set sphere from the scene."""
+    scene.remove_world_object("noCollisions")
     diff_scene = PlanningScene()
     diff_scene.is_diff = True
     acm = scene.get_planning_scene(
@@ -123,6 +159,7 @@ def removeSphere():
     acm.entry_values.pop()
     diff_scene.allowed_collision_matrix = acm
     scene.apply_planning_scene(diff_scene)
+    rospy.sleep(2)
 
 
 class States(Enum):
@@ -138,6 +175,102 @@ class States(Enum):
     EXECUTING_MOVEMENT = 8
 
 
+def normalize(v):
+    norm = np.linalg.norm(v)
+    if norm == 0:
+        return v
+    return v / norm
+
+
+def quaternion_from_vectors(v0, v1):
+    if type(v0) == Point():
+        v0 = [v0.x, v0.y, v0.z]
+    if type(v1) == Point():
+        v1 = [v1.x, v1.y, v1.z]
+
+    v0 = normalize(v0)
+    v1 = normalize(v1)
+    c = np.cross(v0, v1)
+    d = np.dot(v0, v1)
+    try:
+        s = math.sqrt((1.0 + d) * 2)
+    except ValueError:
+        s = 0.0
+    if s == 0.0:
+        # print "s == 0.0, we cant compute"
+        return None  # [0.0, 0.0, 0.0, 1.0]
+
+    q = [0.0, 0.0, 0.0, 0.0]
+    q[0] = c[0] / s
+    q[1] = c[1] / s
+    q[2] = c[2] / s
+    q[3] = s / 2.0
+    return q
+
+
+def generate_grasp_poses(object_pose, radius=APPROACH_OFFSET):
+    # Compute all the points of the sphere with step X
+    # http://math.stackexchange.com/questions/264686/how-to-find-the-3d-coordinates-on-a-celestial-spheres-surface
+    ori_x = 0.0
+    ori_y = 0.0
+    ori_z = 0.0
+    sphere_poses = []
+    rotated_q = quaternion_from_euler(0.0, 0.0, math.radians(180))
+
+    # altitude is yaw
+    # NOTE MIN, MAX, STEP
+    for altitude in range(120, 240, 30):  # NOQA
+        altitude = math.radians(altitude)
+        # azimuth is pitch
+        for azimuth in range(-60, 60, 30):  # NOQA
+            azimuth = math.radians(azimuth)
+            # This gets all the positions
+            x = ori_x + radius * math.cos(azimuth) * math.cos(altitude)
+            y = ori_y + radius * math.sin(altitude)
+            z = ori_z + radius * math.sin(azimuth) * math.cos(altitude)
+            # this gets all the vectors pointing outside of the center
+            # quaternion as x y z w
+            q = quaternion_from_vectors([radius, 0.0, 0.0], [x, y, z])
+            # Cannot compute so the vectors are parallel
+            if q is None:
+                # with this we add the missing arrow
+                q = rotated_q
+            # We invert the orientations to look inwards by multiplying
+            # with a quaternion 180deg rotation on yaw
+            q = quaternion_multiply(q, rotated_q)
+
+            # We actually want roll to be always 0.0 so we approach
+            # the object with the gripper always horizontal
+            # this rotation can be tuned with the dynamic params
+            # multiplying later on
+            roll, pitch, yaw = euler_from_quaternion(q)
+            q = quaternion_from_euler(math.radians(90), pitch, yaw)
+
+            x += object_pose.pose.position.x
+            y += object_pose.pose.position.y
+            z += object_pose.pose.position.z
+
+            current_pose = Pose(Point(x, y, z), Quaternion(*q))
+            current_pose.position.x = x
+            current_pose.position.y = y
+            current_pose.position.z = z
+            # current_pose.orientation.x = 0.7
+            # current_pose.orientation.y = 0.0
+            # current_pose.orientation.z = 0.0
+            # current_pose.orientation.w = 0.7
+            sphere_poses.append(current_pose)
+    return sphere_poses
+
+def getTrajectoryLen(trajectory):
+    """
+    Get the estimated time to complete the trajectory.
+
+    :param trajectory JointTrajectory: Planned trajectory
+    """
+    computed = trajectory.joint_trajectory.points
+    return computed[-1].time_from_start
+
+
 def pickTomato(tomato_id, goal_pose, radius):
     """
     State machine that enables the picking of the tomatoes.
@@ -149,6 +282,8 @@ def pickTomato(tomato_id, goal_pose, radius):
     failed_pick = False
     state = States.PLAN_APPROACH
     old_state = state
+    l_approach_pose = Pose()
+    l_pick_pose = Pose()
     actionlib_client = actionlib.SimpleActionClient(
         "play_motion", PlayMotionAction)
 
@@ -161,54 +296,62 @@ def pickTomato(tomato_id, goal_pose, radius):
             return "home"
 
         elif state == States.PLAN_APPROACH:
-            disableCollisionsAtTarget(goal_pose)
             old_state = state
             rospy.loginfo("Planning approach for tomato [%d]", tomato_id)
-            goal_pose.pose.position.x -= APPROACH_OFFSET
-            move_group.set_pose_target(goal_pose)
-            plan1 = move_group.plan()
-            alt_pose = copy.deepcopy(goal_pose)
-            alt_pose.pose.orientation.x = -0.7071068
-            alt_pose.pose.orientation.y = 0
-            move_group.set_pose_target(alt_pose)
-            plan2 = move_group.plan()
-            (success1, trajectory1, time1, error1) = plan1
-            (success2, trajectory2, time2, error2) = plan2
+            # goal_pose.pose.position.x -= APPROACH_OFFSET
+            poses = generate_grasp_poses(goal_pose)
+            grab_poses = generate_grasp_poses(goal_pose, TARGET_OFFSET)
 
-            if not (success1 or success2):
-                rospy.loginfo("Planning trajectories for approach FAILED")
-                return "plan_fail"
+            f, s = np.array_split(poses, 2)
+            f = np.flip(f)
+            ordered_poses = [val for pair in zip(f, s) for val in pair]
 
-            l1 = getTrajectoryLen(trajectory1)
-            l2 = getTrajectoryLen(trajectory2)
+            gf, gs = np.array_split(grab_poses, 2)
+            gf = np.flip(gf)
+            ordered_gposes = [gval for gpair in zip(gf, gs) for gval in gpair]
 
-            if l2 < l1:
-                goal_pose = alt_pose
-                success = move_group.execute(trajectory2, wait=True)
-                rospy.loginfo("Arm reversed")
-            else:
-                success = move_group.execute(trajectory1, wait=True)
-                rospy.loginfo("Arm normal")
+            plans = []
+            for pos, gpos in zip(ordered_poses, ordered_gposes):
+                move_group.set_pose_target(pos)
+                pplan = move_group.plan()
+                (success, trajectory, time, error) = pplan
+                if not success:
+                    continue
+                inserted = False
+                for idx, plan in enumerate(plans):
+                    (a, b, aux_plan) = plan
+                    (iter_success, iter_trajectory, iter_time, iter_error) = aux_plan
+                    if getTrajectoryLen(trajectory) < getTrajectoryLen(iter_trajectory):
+                        inserted = True
+                        plans.insert(idx, (pos, gpos, pplan))
+                        break
+                if not inserted:
+                    plans.append((pos, gpos, pplan))
 
-            if success1 or success2:
-                rospy.loginfo("Planning approach SUCCESS")
+            found = False
+            for plan in plans:
+                (generating_pose, pick_pose, actual_plan) = plan
+                (success, trajectory, time, error) = actual_plan
+                disableCollisionsAtTarget(
+                    goal_pose, radius)  # This is ok as is
+                move_group.execute(trajectory, wait=True)
+                found = True
+                l_approach_pose = copy.deepcopy(generating_pose)
+                l_pick_pose = copy.deepcopy(pick_pose)
+                rospy.logwarn("Planning approach SUCCESS")
                 state = States.EXECUTING_MOVEMENT
-            else:
-                rospy.logwarn("Planning approach FAIL")
+                break
+
+            if not found:
                 return "plan_fail"
-
-            goal_pose.pose.position.x += APPROACH_OFFSET
-
         elif state == States.PLAN_PICK:
-            rospy.sleep(1.0)
+            # rospy.sleep(1.0)
             old_state = state
             rospy.loginfo("Planning pick for tomato [%d]", tomato_id)
-            goal_pose.pose.position.x -= TARGET_OFFSET
-            target = [goal_pose.pose]
+            target = [l_pick_pose]
             (path, frac) = move_group.compute_cartesian_path(target, 0.01, 0)
-            move_group.set_pose_target(goal_pose)
+            move_group.set_pose_target(l_pick_pose)
             success = move_group.execute(path, wait=True)
-            goal_pose.pose.position.x += TARGET_OFFSET
             if frac <= CARTESIAN_FAILURE_THRESHOLD:
                 failed_pick = True
 
@@ -223,19 +366,20 @@ def pickTomato(tomato_id, goal_pose, radius):
             old_state = state
             rospy.loginfo("Planning grab for tomato [%d]", tomato_id)
             closeGripper(radius)
-            rospy.sleep(1)
+            # rospy.sleep(1)
             # TODO how to check if grab was successful
             state = States.PLAN_BACK
 
         elif state == States.PLAN_BACK:
             old_state = state
             rospy.loginfo("Plannig back")
-            goal_pose.pose.position.x -= APPROACH_OFFSET
-            target = [goal_pose.pose]
+            target = [l_approach_pose]
             (path, frac) = move_group.compute_cartesian_path(target, 0.01, 0)
-            move_group.set_pose_target(goal_pose)
+            move_group.set_pose_target(l_approach_pose)
             success = move_group.execute(path, wait=True)
-            goal_pose.pose.position.x += APPROACH_OFFSET
+
+            if frac < CARTESIAN_FAILURE_THRESHOLD:
+                rospy.logwart("back not executed")
 
             # Here in any case you go back home
             if success:
@@ -249,20 +393,27 @@ def pickTomato(tomato_id, goal_pose, radius):
             removeSphere()
             old_state = state
             rospy.loginfo("Planning approach for HOME")
-            goal = PlayMotionGoal()
-            goal.motion_name = "home"
-            goal.skip_planning = False
-            actionlib_client.send_goal(goal)
-            actionlib_client.wait_for_result(rospy.Duration(15.0))
-            rospy.loginfo("HOME reached")
+            joints = move_group.get_current_joint_values()
+            joints[0] = 0.10
+            joints[1] = 1.47
+            joints[2] = 0.16
+            joints[3] = 0.0
+            joints[4] = 2.22
+            joints[5] = -1.9
+            joints[6] = -0.48
+            joints[7] = -1.39
+
+            move_group.set_joint_value_target(joints)
+            success = move_group.go(wait=True)
             # TODO What if it fails?
-            state = States.PLAN_RELEASE
+            state = States.EXECUTING_MOVEMENT
+            if not success:
+                rospy.logfatal("Home not reachable")
 
         elif state == States.PLAN_RELEASE:
             old_state = state
             rospy.loginfo("Planning release for tomato [%d]", tomato_id)
             openGripper()
-            rospy.sleep(1)
             if failed_pick:
                 return "plan_fail"
             state = States.HOME
@@ -278,20 +429,36 @@ last_tomatoes = []
 
 
 def isRipe(tomato):
+    """
+    Return True if the tomato is ripe.
+
+    :param tomato Pose: Position of the tomato to reach
+    :return: True if ripe
+    :rtype: bool
+    """
     if int(tomato.orientation.x) == 0:
         return True
     else:
         return False
 
 
+def checkDistanceUnderThreshold(new_elem):
+    for tomato in last_tomatoes:
+        distance = np.linalg.norm(np.array(
+            [new_elem.position.x, new_elem.position.y, new_elem.position.z]) - tomato)
+        if distance < DISTANCE_THRESHOLD:
+            return True
+    return False
+
+
 def poseCallBack(positions):
-    global sub
     """
     Ros callback for "/tomato_vision_manager/tomato_position" topic.
 
     :param positions PoseArray: Positions of all the tomatoes with additional
     information in orientation
     """
+    global sub
     toReachTS = copy.deepcopy(positions.poses)
     # print(toReach)
     sub.unregister()
@@ -300,7 +467,7 @@ def poseCallBack(positions):
     toReach = sorted(toReachTS, key=lambda elem: elem.position.x)
 
     index = 0
-    while index < len(toReach) and int(toReach[index].orientation.y) in last_tomatoes:
+    while index < len(toReach) and checkDistanceUnderThreshold(toReach[index]):
         index += 1
 
     if index == len(toReach):
@@ -325,9 +492,10 @@ def poseCallBack(positions):
 
         rospy.loginfo("Going to tomato %d", pose.orientation.y)
 
-        ret = pickTomato(pose.orientation.y, goal_pose, pose.orientation.z)
+        ret = pickTomato(pose.orientation.y, goal_pose, pose.orientation.z / 2)
         if ret in ["plan_fail", "nan"]:
-            last_tomatoes.append(int(pose.orientation.y))
+            last_tomatoes.append(
+                np.array([goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z]))
     else:
         rospy.error("Received NaN")
 
@@ -344,20 +512,20 @@ rospy.init_node("positionReacher")
 sub = rospy.Subscriber("/tomato_vision_manager/tomato_position",
                        PoseArray, poseCallBack)
 
-
 robot = moveit_commander.RobotCommander()
 names = robot.get_group_names()
-
 scene = moveit_commander.PlanningSceneInterface()
-
 move_group = moveit_commander.MoveGroupCommander(GROUP_NAME)
+# move_group.set_planner_id("RRTstar") # TODO does nothing
+move_group.set_planning_time(PLANNING_TIMEOUT)
+gripper_client = actionlib.SimpleActionClient(
+    "/gripper_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
 
-print(move_group.get_planning_frame())
-print(move_group.get_end_effector_link())
+addBasket()
 
+assert move_group.get_planning_frame() == "base_footprint", "Wrong planning frame"
 
 rospy.spin()
 
-
 # TODO s
-# - Plan whiel doing the previous movement
+# - Plan while doing the previous movement
