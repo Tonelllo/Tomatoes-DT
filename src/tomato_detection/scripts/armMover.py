@@ -179,6 +179,7 @@ class States(Enum):
 
 
 def normalize(v):
+    """Normalize the vector."""
     norm = np.linalg.norm(v)
     if norm == 0:
         return v
@@ -186,6 +187,14 @@ def normalize(v):
 
 
 def quaternion_from_vectors(v0, v1):
+    """
+    Return the quaternion between a couple of arrays.
+
+    :param v0 Array: Vector1
+    :param v1 Array: Vector1
+    :return: The resulting quaternion
+    :returns: Array
+    """
     if type(v0) == Point():
         v0 = [v0.x, v0.y, v0.z]
     if type(v1) == Point():
@@ -212,7 +221,7 @@ def quaternion_from_vectors(v0, v1):
 
 
 def generate_grasp_poses(object_pose, radius=APPROACH_OFFSET):
-    # Compute all the points of the sphere with step X
+    """Generate different grasp positions for the tomato."""
     # http://math.stackexchange.com/questions/264686/how-to-find-the-3d-coordinates-on-a-celestial-spheres-surface
     ori_x = 0.0
     ori_y = 0.0
@@ -264,16 +273,26 @@ def generate_grasp_poses(object_pose, radius=APPROACH_OFFSET):
             sphere_poses.append(current_pose)
     return sphere_poses
 
+
 def getTrajectoryLen(trajectory):
     """
     Get the estimated time to complete the trajectory.
 
     :param trajectory JointTrajectory: Planned trajectory
+    :return: Time to reach the tomato
+    :returns: Double
     """
     computed = trajectory.joint_trajectory.points
     return computed[-1].time_from_start
 
+
 def lookAtTomato(tomato_position):
+    """
+    Make the robot look at the given position in the world.
+    NOTE that the position has to be with respect to the "base_footprint" frame.
+
+    :param tomato_position PoseStamped: The position of the tomato in the world
+    """
     rospy.loginfo("looking at tomato")
     tomato_point = PointStamped()
     tomato_point.point.x = tomato_position.pose.position.x
@@ -296,6 +315,7 @@ def lookAtTomato(tomato_position):
 
 
 def resetHead():
+    """Reset the head at the initial position that was calculated beeing the best."""
     point_head_client.cancel_all_goals()
     head_goal = FollowJointTrajectoryGoal()
     look_point = JointTrajectoryPoint()
@@ -308,6 +328,7 @@ def resetHead():
     head_client.send_goal(head_goal)
     head_client.wait_for_result()
     rospy.loginfo("Head resetted")
+
 
 def pickTomato(tomato_id, goal_pose, radius):
     """
@@ -322,8 +343,6 @@ def pickTomato(tomato_id, goal_pose, radius):
     old_state = state
     l_approach_pose = Pose()
     l_pick_pose = Pose()
-    actionlib_client = actionlib.SimpleActionClient(
-        "play_motion", PlayMotionAction)
 
     if math.isnan(float(goal_pose.pose.position.x)):
         rospy.logerr("Nan received")
@@ -358,7 +377,8 @@ def pickTomato(tomato_id, goal_pose, radius):
                 inserted = False
                 for idx, plan in enumerate(plans):
                     (a, b, aux_plan) = plan
-                    (iter_success, iter_trajectory, iter_time, iter_error) = aux_plan
+                    (iter_success, iter_trajectory,
+                     iter_time, iter_error) = aux_plan
                     if getTrajectoryLen(trajectory) < getTrajectoryLen(iter_trajectory):
                         inserted = True
                         plans.insert(idx, (pos, gpos, pplan))
@@ -486,10 +506,20 @@ def isRipe(tomato):
         return False
 
 
-def checkDistanceUnderThreshold(new_elem):
+def checkDistanceUnderThreshold(new_tomato):
+    """
+    Check if the distance for new_tomato is too close to another.
+
+    If that's the case than they are to be considered the same. This function
+    was added because it's not possible to rely on the id of the tomatoes.
+
+    :param new_tomato Pose: Position of the new tomato
+    :return: True if the tomato is under DISTANCE_THRESHOLD
+    :returns: Bool
+    """
     for tomato in last_tomatoes:
         distance = np.linalg.norm(np.array(
-            [new_elem.position.x, new_elem.position.y, new_elem.position.z]) - tomato)
+            [new_tomato.position.x, new_tomato.position.y, new_tomato.position.z]) - tomato)
         if distance < DISTANCE_THRESHOLD:
             return True
     return False
@@ -506,7 +536,8 @@ def poseCallBack(positions):
     toReachTS = copy.deepcopy(positions.poses)
     # print(toReach)
     sub.unregister()
-    getBestHeadPos = rospy.ServiceProxy("/tomato_counting/get_best_tilt", BestPos)
+    getBestHeadPos = rospy.ServiceProxy(
+        "/tomato_counting/get_best_tilt", BestPos)
     best_head_tilt = getBestHeadPos().bestpos
 
     toReachTS = filter(isRipe, toReachTS)
@@ -548,7 +579,6 @@ def poseCallBack(positions):
     else:
         rospy.error("Received NaN")
 
-
     sub = rospy.Subscriber("/tomato_vision_manager/tomato_position",
                            PoseArray, poseCallBack)
 
@@ -557,7 +587,6 @@ def poseCallBack(positions):
 # goal_pose.pose.orientation = tf.transformations.from_quaternion_euler(0, 0, 0)
 moveit_commander.roscpp_initialize(sys.argv)
 rospy.init_node("positionReacher")
-
 
 
 best_head_tilt = None
@@ -569,10 +598,12 @@ move_group = moveit_commander.MoveGroupCommander(GROUP_NAME)
 move_group.set_planning_time(PLANNING_TIMEOUT)
 gripper_client = actionlib.SimpleActionClient(
     "/gripper_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
-point_head_client = actionlib.SimpleActionClient("/head_controller/point_head_action", PointHeadAction)
+point_head_client = actionlib.SimpleActionClient(
+    "/head_controller/point_head_action", PointHeadAction)
 point_head_client.wait_for_server()
 
-head_client = actionlib.SimpleActionClient("/head_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
+head_client = actionlib.SimpleActionClient(
+    "/head_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
 head_client.wait_for_server()
 
 rospy.wait_for_service("/tomato_counting/get_best_tilt")
