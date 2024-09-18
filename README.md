@@ -78,7 +78,7 @@ sensors:
    point_cloud_topic: /xtion/depth_registered/points
    max_range: 2.5
    octomap_resolution: 0.02
-   padding_offset: 0.01
+   padding_offset: 0.03
    padding_scale: 1.0
    point_subsample: 1
    filtered_cloud_topic: output_cloud
