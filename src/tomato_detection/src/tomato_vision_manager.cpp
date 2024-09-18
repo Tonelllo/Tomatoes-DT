@@ -93,6 +93,7 @@ void VisionManager::resetTrajectory()
 {
   m_head_client_->cancelAllGoals();
   m_head_goal_.trajectory.points.clear();
+  ros::Duration(1).sleep();
 }
 
 void VisionManager::setNextPoint(float head_tilt, float time_to_reach)

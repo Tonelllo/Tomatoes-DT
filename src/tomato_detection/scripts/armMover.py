@@ -30,6 +30,8 @@ CARTESIAN_FAILURE_THRESHOLD = 0.7
 OPEN_GRIPPER_POS = 0.05
 DISTANCE_THRESHOLD = 0.05
 PLANNING_TIMEOUT = 0.5
+BASKET_JOINT_POSITION = [0.10, 1.47, 0.16, 0.0, 2.22, -1.9, -0.48, -1.39]
+
 
 marker_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=2)
 gripper_pub = rospy.Publisher(
@@ -42,6 +44,9 @@ def closeGripper(tomato_radius):
 
     :param float tomato_radius: Radius of the tomato to grab.
     """
+
+    # move_group.attach_object("target_tomato", "gripper_link")
+
     gripper_client.wait_for_server()
 
     goal = FollowJointTrajectoryGoal()
@@ -52,6 +57,7 @@ def closeGripper(tomato_radius):
 
     point = JointTrajectoryPoint()
     point.positions = [tomato_radius, tomato_radius]
+    point.effort = [EFFORT, EFFORT]
     point.time_from_start = rospy.Duration(1.0)
     goal.trajectory.points.append(point)
 
@@ -61,6 +67,8 @@ def closeGripper(tomato_radius):
 
 def openGripper():
     """Open gripper."""
+    # move_group.detach_object("target_tomato")
+    # scene.remove_world_object("target_tomato")
     gripper_client.wait_for_server()
 
     goal = FollowJointTrajectoryGoal()
@@ -135,6 +143,7 @@ def disableCollisionsAtTarget(goal_pose, radius):
 
     :param goal_pose Pose: Position of the tomato to reach
     """
+    # scene.add_sphere("target_tomato", goal_pose, radius)
     scene.add_sphere("noCollisions", goal_pose, AVOID_COLLISION_SPHERE_RAIDUS)
     diff_scene = PlanningScene()
     diff_scene.is_diff = True
@@ -266,10 +275,6 @@ def generate_grasp_poses(object_pose, radius=APPROACH_OFFSET):
             current_pose.position.x = x
             current_pose.position.y = y
             current_pose.position.z = z
-            # current_pose.orientation.x = 0.7
-            # current_pose.orientation.y = 0.0
-            # current_pose.orientation.z = 0.0
-            # current_pose.orientation.w = 0.7
             sphere_poses.append(current_pose)
     return sphere_poses
 
@@ -308,10 +313,10 @@ def lookAtTomato(tomato_position):
     head_goal.min_duration = rospy.Duration(1)
     head_goal.max_velocity = 0.50
     head_goal.target = tomato_point
-    rospy.loginfo("wait for result")
+    rospy.loginfo("Waiting for head to position")
     point_head_client.send_goal(head_goal)
-    point_head_client.wait_for_result()
-    rospy.loginfo("result happened")
+    # point_head_client.wait_for_result()
+    # rospy.loginfo("Head positioned")
 
 
 def resetHead():
@@ -326,8 +331,8 @@ def resetHead():
     head_goal.trajectory.points = [look_point]
     rospy.loginfo("Resetting head position")
     head_client.send_goal(head_goal)
-    head_client.wait_for_result()
-    rospy.loginfo("Head resetted")
+    # head_client.wait_for_result()
+    # rospy.loginfo("Head resetted")
 
 
 def pickTomato(tomato_id, goal_pose, radius):
@@ -356,19 +361,11 @@ def pickTomato(tomato_id, goal_pose, radius):
             old_state = state
             rospy.loginfo("Planning approach for tomato [%d]", tomato_id)
             # goal_pose.pose.position.x -= APPROACH_OFFSET
-            poses = generate_grasp_poses(goal_pose)
-            grab_poses = generate_grasp_poses(goal_pose, TARGET_OFFSET)
-
-            f, s = np.array_split(poses, 2)
-            f = np.flip(f)
-            ordered_poses = [val for pair in zip(f, s) for val in pair]
-
-            gf, gs = np.array_split(grab_poses, 2)
-            gf = np.flip(gf)
-            ordered_gposes = [gval for gpair in zip(gf, gs) for gval in gpair]
+            poses = generate_grasp_poses(goal_pose, APPROACH_OFFSET)
+            gposes = generate_grasp_poses(goal_pose, TARGET_OFFSET)
 
             plans = []
-            for pos, gpos in zip(ordered_poses, ordered_gposes):
+            for pos, gpos in zip(poses, gposes):
                 move_group.set_pose_target(pos)
                 pplan = move_group.plan()
                 (success, trajectory, time, error) = pplan
@@ -435,12 +432,10 @@ def pickTomato(tomato_id, goal_pose, radius):
             (path, frac) = move_group.compute_cartesian_path(target, 0.01, 0)
             move_group.set_pose_target(l_approach_pose)
             success = move_group.execute(path, wait=True)
-
-            if frac < CARTESIAN_FAILURE_THRESHOLD:
-                rospy.logwart("back not executed")
+            resetHead()
 
             # Here in any case you go back home
-            if success:
+            if success and frac >= CARTESIAN_FAILURE_THRESHOLD:
                 rospy.loginfo("Planning back SUCCESS")
                 state = States.EXECUTING_MOVEMENT
             else:
@@ -451,24 +446,18 @@ def pickTomato(tomato_id, goal_pose, radius):
             removeSphere()
             old_state = state
             rospy.loginfo("Planning approach for HOME")
-            joints = move_group.get_current_joint_values()
-            joints[0] = 0.10
-            joints[1] = 1.47
-            joints[2] = 0.16
-            joints[3] = 0.0
-            joints[4] = 2.22
-            joints[5] = -1.9
-            joints[6] = -0.48
-            joints[7] = -1.39
+            joints = BASKET_JOINT_POSITION
 
             move_group.set_joint_value_target(joints)
             move_group.set_planning_time(3.0)
             success = move_group.go(wait=True)
             # TODO What if it fails?
-            while not success:
+            if not success:
                 rospy.logfatal("Home not reachable trying random position")
                 move_group.set_random_target()
-                success = move_group.go(wait=True)
+                move_group.go(wait=True)
+                move_group.stop()
+                move_group.clear_pose_targets()
                 state = States.PLAN_HOME
             else:
                 move_group.set_planning_time(PLANNING_TIMEOUT)
@@ -575,7 +564,6 @@ def poseCallBack(positions):
         if ret in ["plan_fail", "nan"]:
             last_tomatoes.append(
                 np.array([goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z]))
-        resetHead()
     else:
         rospy.error("Received NaN")
 
