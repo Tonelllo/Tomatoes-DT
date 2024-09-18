@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import moveit_commander
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, PointStamped
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from geometry_msgs.msg import PoseArray, Quaternion
 from moveit_msgs.msg import PlanningScene, AllowedCollisionEntry, PlanningSceneComponents
@@ -11,17 +11,20 @@ import rospy
 import copy
 from play_motion_msgs.msg import PlayMotionAction, PlayMotionGoal
 from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
+from control_msgs.msg import PointHeadAction, PointHeadGoal
 import actionlib
 from tf.transformations import quaternion_from_euler, quaternion_multiply, euler_from_quaternion
 from visualization_msgs.msg import Marker
 import math
 from enum import Enum
 import numpy as np
+from tomato_detection.srv import BestPos
+import tf
 
 GROUP_NAME = "arm_torso"
 TARGET_OFFSET = 0.21
-APPROACH_OFFSET = 0.28
-AVOID_COLLISION_SPHERE_RAIDUS = 0.1
+APPROACH_OFFSET = 0.30
+AVOID_COLLISION_SPHERE_RAIDUS = 0.07
 EFFORT = 0.3
 CARTESIAN_FAILURE_THRESHOLD = 0.7
 OPEN_GRIPPER_POS = 0.05
@@ -270,6 +273,41 @@ def getTrajectoryLen(trajectory):
     computed = trajectory.joint_trajectory.points
     return computed[-1].time_from_start
 
+def lookAtTomato(tomato_position):
+    rospy.loginfo("looking at tomato")
+    tomato_point = PointStamped()
+    tomato_point.point.x = tomato_position.pose.position.x
+    tomato_point.point.y = tomato_position.pose.position.y
+    tomato_point.point.z = tomato_position.pose.position.z
+    tomato_point.header.frame_id = "/base_footprint"
+
+    head_goal = PointHeadGoal()
+    head_goal.pointing_frame = "/xtion_rgb_optical_frame"
+    head_goal.pointing_axis.x = 0
+    head_goal.pointing_axis.y = 0
+    head_goal.pointing_axis.z = 1
+    head_goal.min_duration = rospy.Duration(1)
+    head_goal.max_velocity = 0.50
+    head_goal.target = tomato_point
+    rospy.loginfo("wait for result")
+    point_head_client.send_goal(head_goal)
+    point_head_client.wait_for_result()
+    rospy.loginfo("result happened")
+
+
+def resetHead():
+    point_head_client.cancel_all_goals()
+    head_goal = FollowJointTrajectoryGoal()
+    look_point = JointTrajectoryPoint()
+    look_point.positions = [0.0, best_head_tilt]
+    look_point.velocities = [0.0, 0.0]
+    # look_point.time_from_start = rospy.Duration(3)
+    head_goal.trajectory.joint_names = ['head_1_joint', 'head_2_joint']
+    head_goal.trajectory.points = [look_point]
+    rospy.loginfo("Resetting head position")
+    head_client.send_goal(head_goal)
+    head_client.wait_for_result()
+    rospy.loginfo("Head resetted")
 
 def pickTomato(tomato_id, goal_pose, radius):
     """
@@ -404,11 +442,17 @@ def pickTomato(tomato_id, goal_pose, radius):
             joints[7] = -1.39
 
             move_group.set_joint_value_target(joints)
+            move_group.set_planning_time(3.0)
             success = move_group.go(wait=True)
             # TODO What if it fails?
-            state = States.EXECUTING_MOVEMENT
-            if not success:
-                rospy.logfatal("Home not reachable")
+            while not success:
+                rospy.logfatal("Home not reachable trying random position")
+                move_group.set_random_target()
+                success = move_group.go(wait=True)
+                state = States.PLAN_HOME
+            else:
+                move_group.set_planning_time(PLANNING_TIMEOUT)
+                state = States.EXECUTING_MOVEMENT
 
         elif state == States.PLAN_RELEASE:
             old_state = state
@@ -458,10 +502,12 @@ def poseCallBack(positions):
     :param positions PoseArray: Positions of all the tomatoes with additional
     information in orientation
     """
-    global sub
+    global sub, best_head_tilt
     toReachTS = copy.deepcopy(positions.poses)
     # print(toReach)
     sub.unregister()
+    getBestHeadPos = rospy.ServiceProxy("/tomato_counting/get_best_tilt", BestPos)
+    best_head_tilt = getBestHeadPos().bestpos
 
     toReachTS = filter(isRipe, toReachTS)
     toReach = sorted(toReachTS, key=lambda elem: elem.position.x)
@@ -488,6 +534,8 @@ def poseCallBack(positions):
         goal_pose.pose.orientation.w = 0.7071068
 
         setMarker(goal_pose.pose)
+
+        lookAtTomato(goal_pose)
         print(goal_pose.pose.position)
 
         rospy.loginfo("Going to tomato %d", pose.orientation.y)
@@ -496,8 +544,10 @@ def poseCallBack(positions):
         if ret in ["plan_fail", "nan"]:
             last_tomatoes.append(
                 np.array([goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z]))
+        resetHead()
     else:
         rospy.error("Received NaN")
+
 
     sub = rospy.Subscriber("/tomato_vision_manager/tomato_position",
                            PoseArray, poseCallBack)
@@ -509,9 +559,8 @@ moveit_commander.roscpp_initialize(sys.argv)
 rospy.init_node("positionReacher")
 
 
-sub = rospy.Subscriber("/tomato_vision_manager/tomato_position",
-                       PoseArray, poseCallBack)
 
+best_head_tilt = None
 robot = moveit_commander.RobotCommander()
 names = robot.get_group_names()
 scene = moveit_commander.PlanningSceneInterface()
@@ -520,10 +569,21 @@ move_group = moveit_commander.MoveGroupCommander(GROUP_NAME)
 move_group.set_planning_time(PLANNING_TIMEOUT)
 gripper_client = actionlib.SimpleActionClient(
     "/gripper_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
+point_head_client = actionlib.SimpleActionClient("/head_controller/point_head_action", PointHeadAction)
+point_head_client.wait_for_server()
+
+head_client = actionlib.SimpleActionClient("/head_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
+head_client.wait_for_server()
+
+rospy.wait_for_service("/tomato_counting/get_best_tilt")
+rospy.loginfo("Service get_best_tilt ready")
 
 addBasket()
 
 assert move_group.get_planning_frame() == "base_footprint", "Wrong planning frame"
+
+sub = rospy.Subscriber("/tomato_vision_manager/tomato_position",
+                       PoseArray, poseCallBack)
 
 rospy.spin()
 
