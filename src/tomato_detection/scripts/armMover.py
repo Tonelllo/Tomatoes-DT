@@ -57,6 +57,7 @@ def closeGripper(tomato_radius):
 
     point = JointTrajectoryPoint()
     point.positions = [tomato_radius, tomato_radius]
+    point.effort = [EFFORT, EFFORT]
     point.time_from_start = rospy.Duration(1.0)
     goal.trajectory.points.append(point)
 
@@ -274,10 +275,6 @@ def generate_grasp_poses(object_pose, radius=APPROACH_OFFSET):
             current_pose.position.x = x
             current_pose.position.y = y
             current_pose.position.z = z
-            # current_pose.orientation.x = 0.7
-            # current_pose.orientation.y = 0.0
-            # current_pose.orientation.z = 0.0
-            # current_pose.orientation.w = 0.7
             sphere_poses.append(current_pose)
     return sphere_poses
 
@@ -318,8 +315,8 @@ def lookAtTomato(tomato_position):
     head_goal.target = tomato_point
     rospy.loginfo("Waiting for head to position")
     point_head_client.send_goal(head_goal)
-    point_head_client.wait_for_result()
-    rospy.loginfo("Head positioned")
+    # point_head_client.wait_for_result()
+    # rospy.loginfo("Head positioned")
 
 
 def resetHead():
@@ -334,8 +331,8 @@ def resetHead():
     head_goal.trajectory.points = [look_point]
     rospy.loginfo("Resetting head position")
     head_client.send_goal(head_goal)
-    head_client.wait_for_result()
-    rospy.loginfo("Head resetted")
+    # head_client.wait_for_result()
+    # rospy.loginfo("Head resetted")
 
 
 def pickTomato(tomato_id, goal_pose, radius):
@@ -435,6 +432,7 @@ def pickTomato(tomato_id, goal_pose, radius):
             (path, frac) = move_group.compute_cartesian_path(target, 0.01, 0)
             move_group.set_pose_target(l_approach_pose)
             success = move_group.execute(path, wait=True)
+            resetHead()
 
             # Here in any case you go back home
             if success and frac >= CARTESIAN_FAILURE_THRESHOLD:
@@ -566,7 +564,6 @@ def poseCallBack(positions):
         if ret in ["plan_fail", "nan"]:
             last_tomatoes.append(
                 np.array([goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z]))
-        resetHead()
     else:
         rospy.error("Received NaN")
 
