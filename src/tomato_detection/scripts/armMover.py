@@ -437,7 +437,7 @@ def pickTomato(tomato_id, goal_pose, radius):
             success = move_group.execute(path, wait=True)
 
             if frac < CARTESIAN_FAILURE_THRESHOLD:
-                rospy.logwart("back not executed")
+                rospy.logwarn("back not executed")
 
             # Here in any case you go back home
             if success:
