@@ -22,9 +22,22 @@ find_package(catkin REQUIRED COMPONENTS
     tf
     pcl_ros
     cv_bridge
+    tf_conversions
 )
 
-
+add_message_files(
+  FILES
+  state_info.msg
+  ControlData.msg
+  DriverCommand.msg
+  GripperState.msg
+  JointJog.msg
+  JointState.msg
+  StateData.msg
+  TaskStatus.msg
+  TPIKAction.msg
+  TPIKPriorityLevel.msg
+)
 
 ## System dependencies are found with CMake's conventions
 find_package(Boost REQUIRED COMPONENTS system)
@@ -70,6 +83,9 @@ find_package(Boost REQUIRED COMPONENTS system)
 add_service_files(
   FILES
   BestPos.srv
+  CustomSignal.srv
+  ControlCommand.srv
+  RosbagCmd.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -83,6 +99,7 @@ add_service_files(
 generate_messages(
   DEPENDENCIES
   std_msgs  # Or other packages containing msgs
+  geometry_msgs
 )
 
 ################################################
@@ -119,6 +136,7 @@ catkin_package(
  # INCLUDE_DIRS include
 #  LIBRARIES tomato_detection
  DEPENDS EIGEN3
+ CATKIN_DEPENDS message_runtime std_msgs
 )
 
 ###########
@@ -128,7 +146,7 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
+  include
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
 )
@@ -163,6 +181,19 @@ target_link_libraries(tomato_vision_manager
   ${catkin_LIBRARIES}
   Eigen3::Eigen
 )
+
+add_executable(agri_kinematic_controller src/kinematic_controller_node.cpp src/control_configuration.cpp
+  src/apple_robot_model.cpp src/kinematic_controller.cpp
+  src/states/state_disabled.cpp src/states/state_idle.cpp src/states/state_move_cartesian.cpp
+  src/states/state_move_joints_pos.cpp src/states/state_move_joints_vel.cpp
+  src/states/state_parked.cpp src/states/state_parking.cpp src/states/state_unparking.cpp
+  src/commands/command_disable.cpp src/commands/command_enable.cpp src/commands/command_move_cartesian.cpp
+  src/commands/command_move_joints_pos.cpp src/commands/command_move_joints_vel.cpp
+  src/commands/command_park.cpp src/commands/command_stop.cpp src/commands/command_unpark.cpp
+  src/commands/generic_command.cpp
+  src/states/generic_state.cpp)
+target_link_libraries(agri_kinematic_controller ${catkin_LIBRARIES} rml ikcl ctrl_toolbox fsm tpik config++ )
+
 
 #############
 ## Install ##
