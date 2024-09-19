@@ -578,13 +578,13 @@ def poseCallBack(positions):
 
 # tpik state from /left_robot/ctrl/ctrl_data
 def TestTPIKService():
-    rospy.wait_for_service('/left_robot/srv/control_command')
+    rospy.wait_for_service('/right_robot/srv/control_command')
     from tomato_detection.srv import ControlCommand
     try:
-        controlCommandSrv = rospy.ServiceProxy('/left_robot/srv/control_command', ControlCommand)
+        controlCommandSrv = rospy.ServiceProxy('/right_robot/srv/control_command', ControlCommand)
         resp1 = controlCommandSrv(command_type = "move_joints_pos",
             move_type = "absolute",
-            joint_setpoint = [1,0,0,0,0,0],
+            joint_setpoint = [1,0,0,0,0,0,0,0],
             joint_index = 0,
             target_position = [0.0, 0.0, 0.0],
             target_orientation = [0.0, 0.0, 0.0],
