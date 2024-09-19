@@ -20,6 +20,7 @@ from enum import Enum
 import numpy as np
 from tomato_detection.srv import BestPos
 import tf
+from tomato_detection.msg import state as State
 
 GROUP_NAME = "arm_torso"
 TARGET_OFFSET = 0.21
@@ -185,6 +186,7 @@ class States(Enum):
     PLAN_RELEASE = 6
     HOME = 7
     EXECUTING_MOVEMENT = 8
+    ERROR_STATE = 9
 
 
 def normalize(v):
@@ -229,7 +231,7 @@ def quaternion_from_vectors(v0, v1):
     return q
 
 
-def generate_grasp_poses(object_pose, radius=APPROACH_OFFSET):
+def generate_grasp_poses(object_pose, radius):  # radius=APPROACH_OFFSET
     """Generate different grasp positions for the tomato."""
     # http://math.stackexchange.com/questions/264686/how-to-find-the-3d-coordinates-on-a-celestial-spheres-surface
     ori_x = 0.0
@@ -353,7 +355,14 @@ def pickTomato(tomato_id, goal_pose, radius):
         rospy.logerr("Nan received")
         return "nan"
 
+    state_ms = State()
+    state_pub = rospy.Publisher("/state_ms", State, queue_size=1)
+
     while True:
+        # if state != old_state:
+        state_ms.State = state.value
+        state_pub.publish(state_ms)
+
         if state == States.HOME:
             return "home"
 
@@ -382,6 +391,8 @@ def pickTomato(tomato_id, goal_pose, radius):
                         break
                 if not inserted:
                     plans.append((pos, gpos, pplan))
+                for plan in plans:
+                    rospy.loginfo("Plan: %s", plan)
 
             found = False
             for plan in plans:
@@ -468,14 +479,22 @@ def pickTomato(tomato_id, goal_pose, radius):
             rospy.loginfo("Planning release for tomato [%d]", tomato_id)
             openGripper()
             if failed_pick:
+                state = States.ERROR_STATE
                 return "plan_fail"
-            state = States.HOME
+            else:
+                state = States.HOME
 
         elif state == States.EXECUTING_MOVEMENT:
             rospy.loginfo("Executing movement")
             move_group.stop()
             move_group.clear_pose_targets()
             state = States(old_state.value + 1)
+
+        elif state == States.ERROR_STATE:
+            rospy.logerr("Error state reached")
+            state = States.HOME
+            return "error"
+
 
 
 last_tomatoes = []

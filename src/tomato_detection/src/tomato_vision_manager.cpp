@@ -214,7 +214,13 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
     float depth = f32image.at<float>(y, x); // NOTE Row, Col
 
     // Diameter
+    if (m_camera_model_.fx() == 0){
+      ROS_ERROR("Camera model not initialized");
+      return;
+    }
+
     position.orientation.z = (pose.position.x * depth) / m_camera_model_.fx();
+    ROS_DEBUG("position.orientation.z  SHOULD NOT BE NAN: %f", position.orientation.z);
 
     ray *= depth + position.orientation.z / 2;
     tf2::Vector3 cameraPoint(ray.x, ray.y, ray.z);

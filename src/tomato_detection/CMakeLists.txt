@@ -22,6 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
     tf
     pcl_ros
     cv_bridge
+    std_msgs
 )
 
 
@@ -60,11 +61,10 @@ find_package(Boost REQUIRED COMPONENTS system)
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+ add_message_files(
+   FILES
+   state.msg
+ )
 
 # Generate services in the 'srv' folder
 add_service_files(
@@ -116,9 +116,10 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 catkin_package(
- # INCLUDE_DIRS include
-#  LIBRARIES tomato_detection
- DEPENDS EIGEN3
+  #INCLUDE_DIRS include
+  LIBRARIES tomato_detection
+  CATKIN_DEPENDS std_msgs
+  DEPENDS EIGEN3
 )
 
 ###########

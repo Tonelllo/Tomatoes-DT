@@ -85,7 +85,7 @@ def removeTargetTomato():
     acm.entry_values.pop()
     diff_scene.allowed_collision_matrix = acm
     scene.apply_planning_scene(diff_scene)
-    rospy.loginfo("Removed sphere")
+    rospy.logwarn("Removed sphere")
 
 
 last_tomatoes = []
