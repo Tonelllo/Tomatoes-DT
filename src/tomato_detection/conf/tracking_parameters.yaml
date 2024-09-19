@@ -1,0 +1,106 @@
+# TRACKING
+baseCamera:
+  Pmatrix:
+    fx: 476.7030836014194
+    fy: 476.7030836014194
+    cx: 400.5
+    cy: 400.5
+    tx: 0.0
+    ty: 0.0
+
+  imagePlaneTransfCameraFrame:
+    elem00: 0.0
+    elem01: -1.0
+    elem02: 0.0
+    elem03: 1.1
+    elem10: 0.0
+    elem11: 0.0
+    elem12: -1.0
+    elem13: 1.1
+    elem20: 1.0
+    elem21: 0.0
+    elem22: 0.0
+    elem23: 0.0
+    elem30: 0.0
+    elem31: 0.0
+    elem32: 0.0
+    elem33: 1.0
+
+leftCamera:
+  Pmatrix:
+    fx: 476.7030836014194
+    fy: 476.7030836014194
+    cx: 400.5
+    cy: 400.5
+    tx: 0.0
+    ty: 0.0
+
+  imagePlaneTransfCameraFrame:
+    elem00: 0.0
+    elem01: -1.0
+    elem02: 0.0
+    elem03: 1.1
+    elem10: 0.0
+    elem11: 0.0
+    elem12: -1.0
+    elem13: 1.1
+    elem20: 1.0
+    elem21: 0.0
+    elem22: 0.0
+    elem23: 0.0
+    elem30: 0.0
+    elem31: 0.0
+    elem32: 0.0
+    elem33: 1.0
+
+rightCamera:
+  Pmatrix:
+    fx: 476.7030836014194
+    fy: 476.7030836014194
+    cx: 400.5
+    cy: 400.5
+    tx: 0.0
+    ty: 0.0
+
+  imagePlaneTransfCameraFrame:
+    elem00: 0.0
+    elem01: -1.0
+    elem02: 0.0
+    elem03: 1.1
+    elem10: 0.0
+    elem11: 0.0
+    elem12: -1.0
+    elem13: 1.1
+    elem20: 1.0
+    elem21: 0.0
+    elem22: 0.0
+    elem23: 0.0
+    elem30: 0.0
+    elem31: 0.0
+    elem32: 0.0
+    elem33: 1.0
+
+robotTransl:
+  left:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  right:
+    x: 0.0
+    y: -0.8
+    z: 0.0
+
+tracking:
+  weightDistance: 0.001
+  weightConfidence: 0.000
+  maxDistance: 1.4
+  sameAppleDistThreshold: 0.10
+  maxCentroidsDistanceWithDuplicates: 0.02
+  maxNumAbsenceFrames: 5.0
+  yMaxLeft: 10000
+  yMinLeft: -0.50
+  yMaxRight: -0.50
+  yMinRight: -10000
+
+imgWidth: 800.0
+imgHeigth: 800.0

@@ -1,0 +1,110 @@
+# NUMBER OF JOINTS
+numJoints: 8
+
+# JOINT PARAMETERS
+joint_parameters_right:
+  joint0: # shoulder
+    roll: 0.0
+    pitch: 0.0
+    yaw: 0.0
+    max_angle: 330.0
+    min_angle: -330.0
+    distance_vector:
+      x: 0.0
+      y: 0.0
+      z: 0.089159
+
+  joint1: # upper_arm
+    roll: 1.570796327
+    pitch: 0.0
+    yaw: 0.0
+    max_angle: 330.0
+    min_angle: -330.0
+    distance_vector:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+
+  joint2: # forearm
+    roll: 0.0
+    pitch: 0.0
+    yaw: 0.0
+    max_angle: 170.0
+    min_angle: -170.0
+    distance_vector:
+      x: 0.425
+      y: 0.0
+      z: 0.0
+
+  joint3: # writs_1
+    roll: 0.0
+    pitch: 0.0
+    yaw: 0.0
+    max_angle: 330.0
+    min_angle: -330.0
+    distance_vector:
+      x: 0.39225
+      y: 0.0
+      z: 0.0
+
+  joint4: # wrist_2
+    roll: 1.570796327
+    pitch: 0.0
+    yaw: 0.0
+    max_angle: 330.0
+    min_angle: -330.0  
+    distance_vector:
+      x: 0.0
+      y: 0.0
+      z: 0.10915
+
+  joint5: # wrist_3
+    roll: 1.570796326589793
+    pitch: 3.141592653589793
+    yaw: 3.141592653589793
+    max_angle: 330.0
+    min_angle: -330.0
+    distance_vector:
+      x: 0.0
+      y: 0.0
+      z: 0.09465
+
+  joint6: # wrist_3
+    roll: 1.570796326589793
+    pitch: 3.141592653589793
+    yaw: 3.141592653589793
+    max_angle: 330.0
+    min_angle: -330.0
+    distance_vector:
+      x: 0.0
+      y: 0.0
+      z: 0.09465
+
+  joint7: # wrist_3
+    roll: 1.570796326589793
+    pitch: 3.141592653589793
+    yaw: 3.141592653589793
+    max_angle: 330.0
+    min_angle: -330.0
+    distance_vector:
+      x: 0.0
+      y: 0.0
+      z: 0.09465
+
+robot_separation_plane: # y = -dRob/2.0 where dRob is the y distance between robots
+  a: 0.0
+  b: 1.0
+  c: 0.0
+  d: 0.17
+
+bkg_plane: # x = dAppl where dAppl is the x distance between robot and orchard
+  a: 1.0
+  b: 0.0
+  c: 0.0
+  d: -0.60
+
+ground_plane: # z = 0; to have z = a, put d: -a
+  a: 0.0
+  b: 0.0
+  c: 1.0
+  d: 0.0

@@ -1,0 +1,6 @@
+bool record_cmd     # 1: start, 0: stop
+string save_folder  # folder where the bag will be saved
+string bag_info     # optional additional info to be saved in the bag folder
+---
+bool record_status  # 1: recording, 0: stopped
+string res          # verbose response from the recorder

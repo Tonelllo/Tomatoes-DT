@@ -1,0 +1,95 @@
+# INITIAL ROBOT STATE
+state:
+  leftrobot_state: IDLE
+  rightrobot_state: IDLE
+
+# STATE MACHINE RATE  
+statemachine:
+  rate: 50
+  gripperClosingTime: 1
+  gripperOpeningTime: 1
+
+robotPositions:
+  qSafeLeft:
+    q1: 1.57
+    q2: -2.20
+    q3: 2.20
+    q4: -3.14
+    q5: -1.57
+    q6: -3.14
+
+  qSafeRight:
+    q1: -1.57
+    q2: -0.96
+    q3: -2.20
+    q4: 0
+    q5: 1.57
+    q6: -3.14
+
+  qApproachBinLeft:
+    q1: -0.3
+    q2: 0.4
+    q3: 1.97
+    q4: 1.57
+    q5: 1.57
+    q6: 0.0
+
+  qBinLeft:
+    q1: -1.2
+    q2: -1.2
+    q3: 2.2
+    q4: -4
+    q5: -1.7
+    q6: -3.14
+
+  qReleaseLeft:
+    q1: -1.57
+    q2: -0.2
+    q3: 2.0
+    q4: 0.90
+    q5: 1.57
+    q6: 3.14
+
+  qApproachBinRight:
+    q1: 0.3
+    q2: 0.4
+    q3: 1.97
+    q4: 1.57
+    q5: 1.57
+    q6: 0.0
+
+  qBinRight:
+    q1: 1.57
+    q2: -0.2
+    q3: 2.0
+    q4: 0.90
+    q5: 1.57
+    q6: 0.0
+
+  qReleaseRight:
+    q1: 1.57
+    q2: -0.2
+    q3: 2.0
+    q4: 0.90
+    q5: 1.57
+    q6: 3.14
+
+  qMapStart:
+    q1: 1.0
+    q2: 0.4
+    q3: 1.97
+    q4: 1.57
+    q5: 1.57
+    q6: 0.0
+
+  qMapEnd:
+    q1: -1.0
+    q2: 0.4
+    q3: 1.97
+    q4: 1.57
+    q5: 1.57
+    q6: 0.0
+  
+  enableCartTest: 0
+  enableJointTest: 1
+  enableFSM: 0

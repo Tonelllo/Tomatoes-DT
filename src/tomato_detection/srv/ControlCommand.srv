@@ -1,0 +1,29 @@
+string command_type
+
+string move_type         # "absolute" or "relative"
+
+float64[] joint_setpoint
+int32 joint_index
+
+float64[3] target_position
+float64[3] target_orientation
+
+int32 frame_type
+
+int32 id
+
+float64 gripper_setpoint  # 0 - 100
+float64 grasp_current
+
+int32 EE=0
+int32 BASE=1
+int32 LOCAL=2
+int32 WORLD=3
+
+string ABSMOVE=absolute
+string RELMOVE=relative
+
+bool enableObstacleAvoidance
+
+---
+string res
