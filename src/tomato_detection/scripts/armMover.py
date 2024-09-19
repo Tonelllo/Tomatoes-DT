@@ -576,9 +576,29 @@ def poseCallBack(positions):
     sub = rospy.Subscriber("/tomato_vision_manager/tomato_position",
                            PoseArray, poseCallBack)
 
+# tpik state from /left_robot/ctrl/ctrl_data
+def TestTPIKService():
+    rospy.wait_for_service('/left_robot/srv/control_command')
+    from tomato_detection.srv import ControlCommand
+    try:
+        controlCommandSrv = rospy.ServiceProxy('/left_robot/srv/control_command', ControlCommand)
+        resp1 = controlCommandSrv(command_type = "move_joints_pos",
+            move_type = "absolute",
+            joint_setpoint = [1,0,0,0,0,0],
+            joint_index = 0,
+            target_position = [0.0, 0.0, 0.0],
+            target_orientation = [0.0, 0.0, 0.0],
+            frame_type = 0,
+            id = 0,
+            gripper_setpoint = 0.0,
+            grasp_current = 0.0,
+            enableObstacleAvoidance = False)
+        print(resp1)
+    except rospy.ServiceException as e:
+        print("Service call failed: %s"%e)
 
 if controllerType == ControllerType.TPIK:
-    pass
+    TestTPIKService()
 
 elif controllerType == ControllerType.MOVEIT:
     # radiants
