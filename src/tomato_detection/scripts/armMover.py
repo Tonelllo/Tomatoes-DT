@@ -32,6 +32,12 @@ DISTANCE_THRESHOLD = 0.05
 PLANNING_TIMEOUT = 0.5
 BASKET_JOINT_POSITION = [0.10, 1.47, 0.16, 0.0, 2.22, -1.9, -0.48, -1.39]
 
+class ControllerType(Enum): #LTA
+    MOVEIT = 1 #LTA
+    TPIK = 2 #LTA
+
+controllerType: ControllerType
+controllerType = ControllerType.TPIK
 
 marker_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=2)
 gripper_pub = rospy.Publisher(
@@ -571,40 +577,44 @@ def poseCallBack(positions):
                            PoseArray, poseCallBack)
 
 
-# radiants
-# goal_pose.pose.orientation = tf.transformations.from_quaternion_euler(0, 0, 0)
-moveit_commander.roscpp_initialize(sys.argv)
-rospy.init_node("positionReacher")
+if controllerType == ControllerType.TPIK:
+    pass
+
+elif controllerType == ControllerType.MOVEIT:
+    # radiants
+    # goal_pose.pose.orientation = tf.transformations.from_quaternion_euler(0, 0, 0)
+    moveit_commander.roscpp_initialize(sys.argv)
+    rospy.init_node("positionReacher")
 
 
-best_head_tilt = None
-robot = moveit_commander.RobotCommander()
-names = robot.get_group_names()
-scene = moveit_commander.PlanningSceneInterface()
-move_group = moveit_commander.MoveGroupCommander(GROUP_NAME)
-# move_group.set_planner_id("RRTstar") # TODO does nothing
-move_group.set_planning_time(PLANNING_TIMEOUT)
-gripper_client = actionlib.SimpleActionClient(
-    "/gripper_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
-point_head_client = actionlib.SimpleActionClient(
-    "/head_controller/point_head_action", PointHeadAction)
-point_head_client.wait_for_server()
+    best_head_tilt = None
+    robot = moveit_commander.RobotCommander()
+    names = robot.get_group_names()
+    scene = moveit_commander.PlanningSceneInterface()
+    move_group = moveit_commander.MoveGroupCommander(GROUP_NAME)
+    # move_group.set_planner_id("RRTstar") # TODO does nothing
+    move_group.set_planning_time(PLANNING_TIMEOUT)
+    gripper_client = actionlib.SimpleActionClient(
+        "/gripper_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
+    point_head_client = actionlib.SimpleActionClient(
+        "/head_controller/point_head_action", PointHeadAction)
+    point_head_client.wait_for_server()
 
-head_client = actionlib.SimpleActionClient(
-    "/head_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
-head_client.wait_for_server()
+    head_client = actionlib.SimpleActionClient(
+        "/head_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
+    head_client.wait_for_server()
 
-rospy.wait_for_service("/tomato_counting/get_best_tilt")
-rospy.loginfo("Service get_best_tilt ready")
+    rospy.wait_for_service("/tomato_counting/get_best_tilt")
+    rospy.loginfo("Service get_best_tilt ready")
 
-addBasket()
+    addBasket()
 
-assert move_group.get_planning_frame() == "base_footprint", "Wrong planning frame"
+    assert move_group.get_planning_frame() == "base_footprint", "Wrong planning frame"
 
-sub = rospy.Subscriber("/tomato_vision_manager/tomato_position",
-                       PoseArray, poseCallBack)
+    sub = rospy.Subscriber("/tomato_vision_manager/tomato_position",
+                        PoseArray, poseCallBack)
 
-rospy.spin()
+    rospy.spin()
 
-# TODO s
-# - Plan while doing the previous movement
+    # TODO s
+    # - Plan while doing the previous movement
