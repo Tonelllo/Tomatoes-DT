@@ -95,14 +95,6 @@ fsm::retval MoveJointsPos::OnExit()
 
 fsm::retval MoveJointsPos::Execute()
 {
-    Eigen::RotationMatrix rotTool = robotModel->TransformationMatrix(robotInfo->toolID, rml::FrameID::WorldFrame).block<3,3>(0,0);
-    for (auto nJoint = 0; nJoint < 6; nJoint++) {
-        //std::cerr << "[MoveJointsPos::Execute] Tjoint" << (nJoint + 1) << " = " << std::endl << robotModel->TransformationMatrix("Left" +
-            //rml::FrameID::Joint + std::to_string(nJoint)) << std::endl;
-    }
-   // std::cerr << "[MoveJointsPos::Execute] wTtool = " << std::endl << robotModel->TransformationMatrix(robotInfo->toolID, rml::FrameID::WorldFrame) << std::endl;
-  //  std::cerr << "[MoveJointsPos::Execute] RPYtool = " << rotTool.ToEulerRPY() << std::endl;
-
     jointsPositionTask_->Reference() = robotInfo->jointsGoal;
 
     Eigen::VectorXd error = robotInfo->jointsGoal - armModel->JointsPosition();

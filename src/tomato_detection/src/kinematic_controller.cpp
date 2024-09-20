@@ -46,7 +46,12 @@ KinematicController::KinematicController(std::shared_ptr<ros::NodeHandle> nodeHa
     ctrlDataPub_ = nh_->advertise<tomato_detection::ControlData>(prefix + appleRobot::topicnames::ctrl_data, 10);
     tpikActionPub_ = nh_->advertise<tomato_detection::TPIKAction>(prefix + appleRobot::topicnames::tpik_action, 10);
 
+    goal2GazeboPub_ = nh_->advertise<control_msgs::FollowJointTrajectoryActionGoal>(appleRobot::topicnames::pos2gazebo, 10);
+
     driverCommandPub_ = nh_->advertise<tomato_detection::DriverCommand>(prefix + appleRobot::topicnames::driver_cmd, 10);
+    driverCommandPub_ = nh_->advertise<tomato_detection::DriverCommand>(prefix + appleRobot::topicnames::driver_cmd, 10);
+
+    //pos2gazebo
     
     if (id_.find("left") != std::string::npos) {
         velPub_ = nh_->advertise<std_msgs::Float64MultiArray>("/left/joint_group_vel_controller/command", 10);
@@ -506,7 +511,7 @@ void KinematicController::Run()
 
     if (receivingFeedback_) {
 
-        PublishToTF(robotModel_->TransformationMatrix(robotInfo_->toolID), "base", "tool");
+        // PublishToTF(robotModel_->TransformationMatrix(robotInfo_->toolID), "base_", "tool");
         auto stateIsIdle = false; // TODO put true state feedback from state machine
         auto stateIsDisabled = false; // TODO put true state feedback from state machine
 
@@ -578,29 +583,42 @@ void KinematicController::Run()
 void KinematicController::PublishTrajectory() {
     trajectory_msgs::JointTrajectory jointTrajectoryMsg;
     jointTrajectoryMsg.header.stamp = ros::Time::now();
-    jointTrajectoryMsg.joint_names = jointNames_;
+    auto armJointNames = jointNames_;
+    armJointNames.erase(
+        std::remove_if(armJointNames.begin(), armJointNames.end(),
+            [](const std::string& name) {
+                return name.find("torso") != std::string::npos;  // Check if "torso" is in the string
+            }
+        ),
+        armJointNames.end()
+    );
+    jointTrajectoryMsg.joint_names = armJointNames;
 
     trajectory_msgs::JointTrajectoryPoint jointTrajectoryPoint;
-    jointTrajectoryPoint.positions.resize(jointNames_.size(),0.0);
-    jointTrajectoryPoint.velocities.resize(jointNames_.size(),0.0);
-    jointTrajectoryPoint.effort.resize(jointNames_.size(),0.0);
+    jointTrajectoryPoint.positions.resize(armJointNames.size(),0.0);
+    jointTrajectoryPoint.velocities.resize(armJointNames.size(),0.0);
+    jointTrajectoryPoint.effort.resize(armJointNames.size(),0.0);
 
     std::cerr << "[Publish,Trajectory] ytpik = " << yTpik_.transpose() << std::endl;
     
     targetJointPos_ = yTpik_ * dt_ + armModel_->JointsPosition();
     std::cerr << "[Publish,Trajectory] targetJointPos_ = " << targetJointPos_.transpose() << std::endl;
-    for (auto i = 0; i < jointNames_.size(); i++) {
-        jointTrajectoryPoint.positions[i] = (targetJointPos_[i] + armModel_->jointOffsetsSim[i]); // STANDARD POS
+    for (auto i = 0; i < armJointNames.size(); i++) {
+        std::cerr << "[Publish,Trajectory] armJointNames = " << armJointNames[i] << std::endl;
+        jointTrajectoryPoint.positions[i] = targetJointPos_[i];
     }
 
-    jointTrajectoryPoint.velocities.resize(jointNames_.size());
+    jointTrajectoryPoint.velocities.resize(armJointNames.size());
     std::fill(jointTrajectoryPoint.velocities.begin(), jointTrajectoryPoint.velocities.end(), 0);
-    jointTrajectoryPoint.accelerations.resize(jointNames_.size());
+    jointTrajectoryPoint.accelerations.resize(armJointNames.size());
     std::fill(jointTrajectoryPoint.accelerations.begin(), jointTrajectoryPoint.accelerations.end(), 0);
 
     jointTrajectoryPoint.time_from_start = ros::Duration(dt_);
     jointTrajectoryMsg.points.push_back(jointTrajectoryPoint);
-    jointTrajectoryPub_.publish(jointTrajectoryMsg);
+
+    control_msgs::FollowJointTrajectoryActionGoal msg;
+    msg.goal.trajectory = jointTrajectoryMsg;
+    goal2GazeboPub_.publish(msg);
 
     std_msgs::Float64MultiArray velMsg;
     velMsg.data.clear();

@@ -48,6 +48,8 @@
 
 #include <sensor_msgs/JointState.h>
 
+#include <control_msgs/FollowJointTrajectoryActionGoal.h>
+
 class KinematicController {
 
     std::shared_ptr<ros::NodeHandle> nh_;
@@ -62,6 +64,7 @@ class KinematicController {
     ros::Publisher tpikActionPub_;
 
     ros::Publisher driverCommandPub_;
+    ros::Publisher goal2GazeboPub_;
 
     ros::ServiceServer srvCommand_;
 
