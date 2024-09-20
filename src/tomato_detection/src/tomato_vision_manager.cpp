@@ -22,6 +22,7 @@
 #include "tomato_vision_manager.h"
 #include <pcl_conversions/pcl_conversions.h>
 #include <tf2_eigen/tf2_eigen.h>
+#include <tomato_detection/tomato_info.h>
 
 static double deg2rad(double degrees)
 {
@@ -197,9 +198,13 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
     // TODO It's created each iteration
     // Z is the class and y is the id
     std::map<std::string, int> vals;
+
+
+    ROS_DEBUG("SONO QUAAAAAAAAAAAAAAAAAA");
     geometry_msgs::Pose position;
     int x = round(pose.orientation.x);
     int y = round(pose.orientation.y);
+
     cv::Point3d ray = m_camera_model_.projectPixelTo3dRay(cv::Point2d(x, y));
     position.orientation.x = pose.orientation.z;  // Assign the class
     position.orientation.y = pose.orientation.w;  // Assign the id
@@ -209,8 +214,8 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
       ROS_ERROR("Wrong image encoding for depth data");
     }
 
-    // cv::circle(f32image, cv::Point(x, y), 15, cv::Scalar(0, 0, 0), 3);
-    // cv::circle(f32image, cv::Point(x, y), 5, cv::Scalar(255, 255, 255), 3);
+    cv::circle(f32image, cv::Point(x, y), 15, cv::Scalar(0, 0, 0), 3);
+    cv::circle(f32image, cv::Point(x, y), 5, cv::Scalar(255, 255, 255), 3);
     float depth = f32image.at<float>(y, x); // NOTE Row, Col
 
     // Diameter

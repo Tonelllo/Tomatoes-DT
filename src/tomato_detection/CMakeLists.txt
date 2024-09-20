@@ -64,6 +64,7 @@ find_package(Boost REQUIRED COMPONENTS system)
  add_message_files(
    FILES
    state.msg
+   tomato_info.msg
  )
 
 # Generate services in the 'srv' folder

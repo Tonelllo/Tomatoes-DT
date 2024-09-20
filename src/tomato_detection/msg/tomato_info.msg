@@ -1,0 +1,3 @@
+int32 tomato_class
+int32 tomato_id
+float32 tomato_diameter
