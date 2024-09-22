@@ -70,7 +70,6 @@ find_package(Boost REQUIRED COMPONENTS system)
 add_service_files(
   FILES
   BestPos.srv
-  LatestTomatoPositions.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -84,7 +83,6 @@ add_service_files(
 generate_messages(
   DEPENDENCIES
   std_msgs  # Or other packages containing msgs
-  geometry_msgs
 )
 
 ################################################

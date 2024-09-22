@@ -37,6 +37,7 @@ def publishTrackingResult(img):
     out_img = bridge.cv2_to_imgmsg(img, encoding="bgr8")
     imgPublisher.publish(out_img)
 
+
 def callback(data):
     image = bridge.imgmsg_to_cv2(data, desired_encoding="bgr8")
     result = model.track(image, persist=True, verbose=False,
@@ -105,7 +106,7 @@ def callback(data):
                 elem.position.x = avg[2]  # Horizontal radius in pixels
                 out.poses.append(elem)
                 # out.header = sensor_msgs.msg.Header()
-                out.header.stamp = data.header.stamp
+                out.header.stamp = rospy.Time.now()
         pub.publish(out)
 
         # TODO maybe sort by accuracy

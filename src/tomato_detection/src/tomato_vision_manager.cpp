@@ -4,7 +4,6 @@
 #include "geometry_msgs/TransformStamped.h"
 #include "image_geometry/pinhole_camera_model.h"
 #include "opencv2/core/types.hpp"
-#include "opencv2/highgui.hpp"
 #include "ros/console.h"
 #include "ros/duration.h"
 #include "ros/time.h"
@@ -20,10 +19,6 @@
 #include <Eigen/Core>
 #include <ros/ros.h>
 #include <strings.h>
-#include "std_msgs/Empty.h"
-#include "std_srvs/Empty.h"
-#include "tomato_detection/getLatestTomatoPositionsRequest.h"
-#include "tomato_detection/getLatestTomatoPositionsResponse.h"
 #include "tomato_vision_manager.h"
 #include <pcl_conversions/pcl_conversions.h>
 #include <tf2_eigen/tf2_eigen.h>
@@ -33,8 +28,7 @@ static double deg2rad(double degrees)
   return degrees * (M_PI / 180.0);
 }
 
-static double rad2deg(double rad)
-{
+static double rad2deg(double rad){
   return rad * (180.0 / M_PI);
 }
 
@@ -54,19 +48,8 @@ VisionManager::VisionManager(ros::NodeHandle& nh)
   m_sync_->registerCallback(&VisionManager::computeDistances, this);
 
   m_tomato_position_publisher_ = m_nh_.advertise<geometry_msgs::PoseArray>("/tomato_vision_manager/tomato_position", 1);
-  m_tomato_position_server_ = m_nh_.advertiseService("/tomato_vision_manager/tomato_position_service",
-                                                     &VisionManager::getLatestTomatoPositions, this);
   m_goal_reached_ = false;
   m_tfListener_ = new tf2_ros::TransformListener(m_buffer_);
-}
-
-bool VisionManager::getLatestTomatoPositions(tomato_detection::getLatestTomatoPositionsRequest& req,
-                                             tomato_detection::getLatestTomatoPositionsResponse&res)
-{
-  poseMutex.lock();
-  res.tomatoes = m_latest_positions;
-  poseMutex.unlock();
-  return true;
 }
 
 void VisionManager::createHeadClient()
@@ -228,7 +211,7 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
 
     // cv::circle(f32image, cv::Point(x, y), 15, cv::Scalar(0, 0, 0), 3);
     // cv::circle(f32image, cv::Point(x, y), 5, cv::Scalar(255, 255, 255), 3);
-    float depth = f32image.at<float>(y, x);  // NOTE Row, Col
+    float depth = f32image.at<float>(y, x); // NOTE Row, Col
 
     // Diameter
     position.orientation.z = (pose.position.x * depth) / m_camera_model_.fx();
@@ -246,9 +229,7 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
   }
   // cv::imshow("cane", f32image);
   // cv::waitKey(100);
-  poseMutex.lock();
-  m_latest_positions = positions;
-  poseMutex.unlock();
+
   m_tomato_position_publisher_.publish(positions);
 }
 
