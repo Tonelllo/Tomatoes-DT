@@ -668,7 +668,8 @@ robot = moveit_commander.RobotCommander()
 names = robot.get_group_names()
 scene = moveit_commander.PlanningSceneInterface()
 move_group = moveit_commander.MoveGroupCommander(GROUP_NAME)
-move_group.set_planner_id("LBTRRT") # TODO does nothing
+# move_group.set_planner_id("LBTRRT")
+move_group.set_planner_id("SPARS2")
 move_group.set_planning_time(PLANNING_TIMEOUT)
 gripper_client = actionlib.SimpleActionClient(
     "/gripper_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
@@ -707,9 +708,7 @@ pickTomato()
 rospy.spin()
 
 # TODO s
-# - Plan while doing the previous movement
-# - Stops when there is no viable trajectory to follow after next_tomato selection.
-#   In this case recompute
-
+# - In case that no tomato has been found in next_tomato wait for the head
+#   to reset before getting a new tomato otherwise nan
 
 # https://ompl.kavrakilab.org/planners.html
