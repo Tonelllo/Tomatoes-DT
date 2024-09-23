@@ -480,8 +480,6 @@ def pickTomato():
             (path, frac) = move_group.compute_cartesian_path(target, 0.01, 0)
             move_group.set_pose_target(l_pick_pose)
             success = move_group.execute(path, wait=True)
-            if frac <= CARTESIAN_FAILURE_THRESHOLD:
-                failed_pick = True
 
             if success and frac > CARTESIAN_FAILURE_THRESHOLD:
                 rospy.loginfo("Planning pick SUCCESS")
@@ -561,7 +559,6 @@ def pickTomato():
                     break
             status_mutex.release()
 
-
             if not res:
                 print("Waiting for completion")
                 for a in status_array:
@@ -573,8 +570,6 @@ def pickTomato():
             old_state = state
             rospy.loginfo("Planning release for tomato")
             openGripper()
-            if failed_pick:
-                return "plan_fail"
             state = States.HOME
 
         elif state == States.EXECUTING_MOVEMENT:
@@ -673,7 +668,7 @@ robot = moveit_commander.RobotCommander()
 names = robot.get_group_names()
 scene = moveit_commander.PlanningSceneInterface()
 move_group = moveit_commander.MoveGroupCommander(GROUP_NAME)
-# move_group.set_planner_id("RRTstar") # TODO does nothing
+move_group.set_planner_id("LBTRRT") # TODO does nothing
 move_group.set_planning_time(PLANNING_TIMEOUT)
 gripper_client = actionlib.SimpleActionClient(
     "/gripper_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
@@ -697,6 +692,8 @@ rospy.loginfo("Service get_best_tilt ready")
 
 status_sub = rospy.Subscriber("/move_group/status", GoalStatusArray, statusCallback)
 
+print("Current planner", move_group.get_planner_id())
+
 addBasket()
 
 assert move_group.get_planning_frame() == "base_footprint", "Wrong planning frame"
@@ -713,3 +710,6 @@ rospy.spin()
 # - Plan while doing the previous movement
 # - Stops when there is no viable trajectory to follow after next_tomato selection.
 #   In this case recompute
+
+
+# https://ompl.kavrakilab.org/planners.html
