@@ -120,3 +120,31 @@ agri_challenge:
 ```xml
   <include file="$(find tomato_detection)/launch/rviz.launch"/>
 ```
+
+# Robot Vero
+Aggiungere in fondo al ~/.bashrc queste due righe:
+
+``` bash
+export ROS_MASTER_URI=http://10.68.0.1:11311
+export ROS_HOSTNAME=10.68.0.130
+```
+**ATTENZIONE** Le simulazioni non vanno con queste due righe. In caso commentale
+e chiudi e riapri terminator. Altrimenti fatti il source del bashrc in tutti i
+terminali<br/>
+
+**ATTENZIONE** ROS_HOSTNAME non necessariamente e' quello scritto li'. Dopo
+esserti connesso alla rete wifi di Tiago controllare che corrisponda con:
+
+``` bash
+ip addr
+```
+Sotto wlp... dovresti vedere l'ip corretto.
+## Cose da sapere
++ Quando si spegne bisogna essere in due. Uno che gli regge le braccia e uno che effettivamente lo spenge
++ Attenzione che le self-collision fanno pena
++ **ATTENZIONE** La detection delle collisioni non e' abilitata di default. Per abilitarla andare nell'interfaccia web e abilitarla in startup extra
++ Per disattivare il movimento idle della testa andare nell'interfaccia web e disabilitare head_manager
+## Interfaccia web
+$ROS_MASTER_URI con porta 8080: `http://10.68.0.1:8080`
+## Password rete Tiago
+`TheEngineRoom`
