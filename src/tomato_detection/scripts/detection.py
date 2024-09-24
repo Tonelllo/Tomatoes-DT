@@ -106,7 +106,8 @@ def callback(data):
                 elem.position.x = avg[2]  # Horizontal radius in pixels
                 out.poses.append(elem)
                 # out.header = sensor_msgs.msg.Header()
-                out.header.stamp = rospy.Time.now()
+                # out.header.stamp = rospy.Time.now()
+                out.header.stamp = data.header.stamp
         pub.publish(out)
 
         # TODO maybe sort by accuracy

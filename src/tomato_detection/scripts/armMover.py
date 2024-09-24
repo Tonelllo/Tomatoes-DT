@@ -61,7 +61,7 @@ def closeGripper(tomato_radius):
 
     goal = FollowJointTrajectoryGoal()
     goal.trajectory.joint_names = [
-        "gripper_left_finger_joint", "gripper_right_finger_joint"]
+        "gripper_left_left_finger_joint", "gripper_left_right_finger_joint"]
 
     tomato_radius -= 0.01
 
@@ -82,7 +82,7 @@ def openGripper():
 
     goal = FollowJointTrajectoryGoal()
     goal.trajectory.joint_names = [
-        "gripper_left_finger_joint", "gripper_right_finger_joint"]
+        "gripper_left_left_finger_joint", "gripper_left_right_finger_joint"]
 
     point = JointTrajectoryPoint()
     point.positions = [OPEN_GRIPPER_POS, OPEN_GRIPPER_POS]
@@ -672,14 +672,14 @@ move_group = moveit_commander.MoveGroupCommander(GROUP_NAME)
 move_group.set_planner_id("SPARS2")
 move_group.set_planning_time(PLANNING_TIMEOUT)
 gripper_client = actionlib.SimpleActionClient(
-    "/gripper_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
+    "/gripper_left_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
 gripper_client.wait_for_server()
 point_head_client = actionlib.SimpleActionClient(
     "/head_controller/point_head_action", PointHeadAction)
 point_head_client.wait_for_server()
 marker_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=2)
 gripper_pub = rospy.Publisher(
-    "/parallel_gripper_controller/command", JointTrajectory, queue_size=2)
+    "/parallel_gripper_left_controller/command", JointTrajectory, queue_size=2)
 
 getBestHeadPos = rospy.ServiceProxy("/tomato_counting/get_best_tilt", BestPos)
 getBestHeadPos.wait_for_service()

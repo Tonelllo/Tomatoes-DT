@@ -3,6 +3,7 @@
 #include "geometry_msgs/PoseArray.h"
 #include "geometry_msgs/TransformStamped.h"
 #include "image_geometry/pinhole_camera_model.h"
+#include "opencv2/core/check.hpp"
 #include "opencv2/core/types.hpp"
 #include "opencv2/highgui.hpp"
 #include "ros/console.h"
@@ -18,6 +19,7 @@
 #include <functional>
 #include <map>
 #include <Eigen/Core>
+#include <memory>
 #include <ros/ros.h>
 #include <strings.h>
 #include "std_msgs/Empty.h"
@@ -46,12 +48,13 @@ VisionManager::VisionManager(ros::NodeHandle& nh)
   m_nh_ = nh;
   m_best_pos_client_ = m_nh_.serviceClient<tomato_detection::BestPos>("tomato_counting/get_best_tilt");
 
-  m_pose_sub_.subscribe(m_nh_, "/tomato_detection/detected_tomatoes", 1);
-  m_camera_sub_.subscribe(m_nh_, "/xtion/depth_registered/camera_info", 1);
-  m_point_sub_.subscribe(m_nh_, "/xtion/depth_registered/image_raw", 1);
-  m_sync_ = std::make_shared<message_filters::Synchronizer<Sync_policy_>>(10);
-  m_sync_->connectInput(m_pose_sub_, m_camera_sub_, m_point_sub_);
-  m_sync_->registerCallback(&VisionManager::computeDistances, this);
+  m_pose_sub_ = nh.subscribe<geometry_msgs::PoseArray>("/tomato_detection/detected_tomatoes", 10, &VisionManager::computeDistances, this);
+  m_camera_sub_.subscribe(m_nh_, "/xtion/depth_registered/camera_info", 50);
+  m_point_sub_.subscribe(m_nh_, "/xtion/depth_registered/image_raw", 50);
+  pointCache.setCacheSize(10);
+  pointCache.connectInput(m_point_sub_);
+  infoCache.setCacheSize(10);
+  infoCache.connectInput(m_camera_sub_);
 
   m_tomato_position_publisher_ = m_nh_.advertise<geometry_msgs::PoseArray>("/tomato_vision_manager/tomato_position", 1);
   m_tomato_position_server_ = m_nh_.advertiseService("/tomato_vision_manager/tomato_position_service",
@@ -163,8 +166,7 @@ tf2::Transform VisionManager::stampedTransform2tf2Transform(geometry_msgs::Trans
 }
 
 // TODO check for ::constPtr
-void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::CameraInfo info,
-                                     sensor_msgs::Image depthInfo)
+void VisionManager::computeDistances(geometry_msgs::PoseArray msg)
 {
   /**
    *                    X
@@ -175,6 +177,10 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
    *      V
    */
 
+  sensor_msgs::Image depthInfo;
+  sensor_msgs::CameraInfo info;
+  info = *infoCache.getElemBeforeTime(ros::Time::now());
+  depthInfo = *pointCache.getElemBeforeTime(ros::Time::now());
   geometry_msgs::PoseArray positions;
   cv::Mat f32image;
   cv_bridge::CvImagePtr cvPtr = cv_bridge::toCvCopy(depthInfo, sensor_msgs::image_encodings::TYPE_32FC1);
@@ -226,8 +232,8 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
       ROS_ERROR("Wrong image encoding for depth data");
     }
 
-    // cv::circle(f32image, cv::Point(x, y), 15, cv::Scalar(0, 0, 0), 3);
-    // cv::circle(f32image, cv::Point(x, y), 5, cv::Scalar(255, 255, 255), 3);
+    cv::circle(f32image, cv::Point(x, y), 15, cv::Scalar(0, 0, 0), 3);
+    cv::circle(f32image, cv::Point(x, y), 5, cv::Scalar(255, 255, 255), 3);
     float depth = f32image.at<float>(y, x);  // NOTE Row, Col
 
     // Diameter
@@ -244,8 +250,8 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg, sensor_msgs::
     position.position.z = bodyFixedPoint.z();
     positions.poses.push_back(position);
   }
-  // cv::imshow("cane", f32image);
-  // cv::waitKey(100);
+  cv::imshow("cane", f32image);
+  cv::waitKey(100);
   poseMutex.lock();
   m_latest_positions = positions;
   poseMutex.unlock();

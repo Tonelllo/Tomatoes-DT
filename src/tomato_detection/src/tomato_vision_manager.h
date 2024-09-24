@@ -10,16 +10,20 @@
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/synchronizer.h>
 #include <boost/smart_ptr/shared_ptr.hpp>
+#include <memory>
 #include <mutex>
 #include <sensor_msgs/PointCloud2.h>
 #include <image_geometry/pinhole_camera_model.h>
 #include "ros/service_server.h"
+#include "ros/subscriber.h"
+#include "sensor_msgs/CameraInfo.h"
 #include "sensor_msgs/Image.h"
 #include "Eigen/Dense"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
 #include <tf2/LinearMath/Transform.h>
 #include "tf2_ros/transform_listener.h"
+#include "message_filters/cache.h"
 
 class VisionManager
 {
@@ -37,11 +41,12 @@ class VisionManager
 
   using Sync_policy_ = message_filters::sync_policies::ApproximateTime<geometry_msgs::PoseArray,
                                                                        sensor_msgs::CameraInfo, sensor_msgs::Image>;
-  message_filters::Subscriber<geometry_msgs::PoseArray> m_pose_sub_;
+  ros::Subscriber m_pose_sub_;
   message_filters::Subscriber<sensor_msgs::CameraInfo> m_camera_sub_;
   // message_filters::Subscriber<sensor_msgs::PointCloud2> m_point_sub_;
   message_filters::Subscriber<sensor_msgs::Image> m_point_sub_;
-
+  message_filters::Cache<sensor_msgs::Image>pointCache;
+  message_filters::Cache<sensor_msgs::CameraInfo>infoCache;
   std::shared_ptr<message_filters::Synchronizer<Sync_policy_>> m_sync_;
 
   void setNextPoint(float, float);
@@ -62,7 +67,7 @@ public:
   void lookUp();
   void scan();
   void lookAtBestPosition();
-  void computeDistances(geometry_msgs::PoseArray, sensor_msgs::CameraInfo, sensor_msgs::Image);
+  void computeDistances(geometry_msgs::PoseArray);
   void getBestPosition();
   void startYOLOScan();
   bool getLatestTomatoPositions(tomato_detection::getLatestTomatoPositionsRequest& req,
