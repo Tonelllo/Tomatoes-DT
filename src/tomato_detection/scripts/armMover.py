@@ -22,7 +22,7 @@ from tomato_detection.srv import BestPos
 from threading import Lock
 from tomato_detection.srv import LatestTomatoPositions
 
-GROUP_NAME = "arm_torso"
+GROUP_NAME = "arm_left_torso"
 TARGET_OFFSET = 0.21
 APPROACH_OFFSET = 0.30
 AVOID_COLLISION_SPHERE_RAIDUS = 0.07
@@ -31,7 +31,8 @@ CARTESIAN_FAILURE_THRESHOLD = 0.7
 OPEN_GRIPPER_POS = 0.05
 DISTANCE_THRESHOLD = 0.05
 PLANNING_TIMEOUT = 0.5
-BASKET_JOINT_POSITION = [0.10, 1.47, 0.16, 0.0, 2.22, -1.9, -0.48, -1.39]
+# BASKET_JOINT_POSITION = [0.10, 1.47, 0.16, 0.0, 2.22, -1.9, -0.48, -1.39]
+BASKET_JOINT_POSITION = [0.10, 1.18, -0.15, 3.3, 2.2, -1.4, -1.2, 0]
 
 
 class States(Enum):
@@ -712,3 +713,7 @@ rospy.spin()
 #   to reset before getting a new tomato otherwise nan
 
 # https://ompl.kavrakilab.org/planners.html
+
+# /home/tonello/TiagoDual/src/tiago_robot/tiago_bringup/launch/tiago_bringup.launch
+# /home/tonello/TiagoDual/src/tiago_simulation/tiago_gazebo/launch/simulation_tiago_bringup.launch
+# http://wiki.ros.org/Robots/TIAGo%2B%2B/Tutorials/MoveIt/Planning_Octomap
