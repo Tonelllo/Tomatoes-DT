@@ -5,7 +5,7 @@
 #include "geometry_msgs/PoseArray.h"
 #include "ros/publisher.h"
 #include <tomato_detection/BestPos.h>
-#include <tomato_detection/getLatestTomatoPositions.h>
+#include <tomato_detection/LatestTomatoPositions.h>
 #include <message_filters/subscriber.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/synchronizer.h>
@@ -67,6 +67,6 @@ public:
   void computeDistances(geometry_msgs::PoseArray);
   void getBestPosition();
   void startYOLOScan();
-  bool getLatestTomatoPositions(tomato_detection::getLatestTomatoPositionsRequest& req,
-                                tomato_detection::getLatestTomatoPositionsResponse& res);
+  bool getLatestTomatoPositions(tomato_detection::LatestTomatoPositionsRequest& req,
+                                tomato_detection::LatestTomatoPositionsResponse& res);
 };
