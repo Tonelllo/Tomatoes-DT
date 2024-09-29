@@ -1,0 +1,3 @@
+[submodule "src/agri_challenge"]
+	path = src/agri_challenge
+	url = https://github.com/IRIM2024/agri_challenge

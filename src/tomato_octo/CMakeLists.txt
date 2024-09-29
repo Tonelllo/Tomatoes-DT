@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(tomato_detection)
+project(tomato_octo)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -10,24 +10,15 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-    message_generation
-    actionlib
-    control_msgs
-    image_geometry
-    message_filters
-    sensor_msgs
-    geometry_msgs
     roscpp
-    rospy
-    tf
-    pcl_ros
-    cv_bridge
+    octomap_msgs
+    moveit_msgs
 )
 
 
 
 ## System dependencies are found with CMake's conventions
-find_package(Boost REQUIRED COMPONENTS system)
+# find_package(Boost REQUIRED COMPONENTS system)
 
 
 ## Uncomment this if the package has a setup.py. This macro ensures
@@ -67,11 +58,11 @@ find_package(Boost REQUIRED COMPONENTS system)
 # )
 
 # Generate services in the 'srv' folder
-add_service_files(
-  FILES
-  BestPos.srv
-  LatestTomatoPositions.srv
-)
+# add_service_files(
+#   FILES
+#   BestPos.srv
+#   LatestTomatoPositions.srv
+# )
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -81,11 +72,11 @@ add_service_files(
 # )
 
 ## Generate added messages and services with any dependencies listed here
-generate_messages(
-  DEPENDENCIES
-  std_msgs  # Or other packages containing msgs
-  geometry_msgs
-)
+# generate_messages(
+#   DEPENDENCIES
+#   std_msgs  # Or other packages containing msgs
+#   geometry_msgs
+# )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -116,11 +107,10 @@ generate_messages(
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
-find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 catkin_package(
  # INCLUDE_DIRS include
 #  LIBRARIES tomato_detection
- DEPENDS EIGEN3
+#  DEPENDS EIGEN3
 )
 
 ###########
@@ -132,7 +122,6 @@ catkin_package(
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
-  ${EIGEN3_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -148,7 +137,7 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix en/xtion/rgb/camera_infosures that target names across packages don't collide
-add_executable(tomato_vision_manager src/vision_node.cpp src/tomato_vision_manager.cpp src/tomato_vision_manager.h)
+add_executable(tomato_octomap src/tomato_octomap.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -158,12 +147,11 @@ add_executable(tomato_vision_manager src/vision_node.cpp src/tomato_vision_manag
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-add_dependencies(tomato_vision_manager ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(tomato_octomap ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(tomato_vision_manager
+target_link_libraries(tomato_octomap
   ${catkin_LIBRARIES}
-  Eigen3::Eigen
 )
 
 #############
