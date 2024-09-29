@@ -651,7 +651,8 @@ def getTomatoPoses():
             goal_pose.pose.orientation.z = 0
             goal_pose.pose.orientation.w = 0.7071068
             id = pose.orientation.y
-            radius = pose.orientation.z
+            # NOTE 0 because TIAGO will stop when closing too hard
+            radius = 0 #pose.orientation.z
             poses.append(goal_pose)
         else:
             rospy.logerr("Received NaN")

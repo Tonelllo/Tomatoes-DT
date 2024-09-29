@@ -103,7 +103,7 @@ def callback(data):
                 elem.orientation.y = avg[1]
                 elem.orientation.z = tomatoes[tomato]["cls"]
                 elem.orientation.w = tomatoes[tomato]["id"]
-                elem.position.x = avg[2]  # Horizontal radius in pixels
+                elem.position.x = avg[2]  # Horizontal daimeter in pixels
                 out.poses.append(elem)
                 # out.header = sensor_msgs.msg.Header()
                 out.header.stamp = rospy.Time.now()
