@@ -109,5 +109,4 @@ compile_commands.json
 *_qmlcache.qrc
 .cache/
 .qtc_clangd/
-src/agri_challenge
 releaseBuild/
