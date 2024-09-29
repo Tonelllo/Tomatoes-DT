@@ -39,15 +39,12 @@ class VisionManager
   image_geometry::PinholeCameraModel m_camera_model_;
   tf2::Transform stampedTransform2tf2Transform(geometry_msgs::TransformStamped);
 
-  using Sync_policy_ = message_filters::sync_policies::ApproximateTime<geometry_msgs::PoseArray,
-                                                                       sensor_msgs::CameraInfo, sensor_msgs::Image>;
   ros::Subscriber m_pose_sub_;
   message_filters::Subscriber<sensor_msgs::CameraInfo> m_camera_sub_;
   // message_filters::Subscriber<sensor_msgs::PointCloud2> m_point_sub_;
   message_filters::Subscriber<sensor_msgs::Image> m_point_sub_;
   message_filters::Cache<sensor_msgs::Image>pointCache;
   message_filters::Cache<sensor_msgs::CameraInfo>infoCache;
-  std::shared_ptr<message_filters::Synchronizer<Sync_policy_>> m_sync_;
 
   void setNextPoint(float, float);
   void goalReachedCallback();

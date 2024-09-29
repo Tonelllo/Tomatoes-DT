@@ -48,12 +48,12 @@ VisionManager::VisionManager(ros::NodeHandle& nh)
   m_nh_ = nh;
   m_best_pos_client_ = m_nh_.serviceClient<tomato_detection::BestPos>("tomato_counting/get_best_tilt");
 
-  m_pose_sub_ = nh.subscribe<geometry_msgs::PoseArray>("/tomato_detection/detected_tomatoes", 10, &VisionManager::computeDistances, this);
-  m_camera_sub_.subscribe(m_nh_, "/xtion/depth_registered/camera_info", 50);
-  m_point_sub_.subscribe(m_nh_, "/xtion/depth_registered/image_raw", 50);
-  pointCache.setCacheSize(10);
+  m_pose_sub_ = nh.subscribe<geometry_msgs::PoseArray>("/tomato_detection/detected_tomatoes", 5, &VisionManager::computeDistances, this);
+  m_camera_sub_.subscribe(m_nh_, "/xtion/depth_registered/camera_info", 10);
+  m_point_sub_.subscribe(m_nh_, "/xtion/depth_registered/image_raw", 10);
+  pointCache.setCacheSize(70);
   pointCache.connectInput(m_point_sub_);
-  infoCache.setCacheSize(10);
+  infoCache.setCacheSize(70);
   infoCache.connectInput(m_camera_sub_);
 
   m_tomato_position_publisher_ = m_nh_.advertise<geometry_msgs::PoseArray>("/tomato_vision_manager/tomato_position", 1);
@@ -179,8 +179,18 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg)
 
   sensor_msgs::Image depthInfo;
   sensor_msgs::CameraInfo info;
-  info = *infoCache.getElemBeforeTime(ros::Time::now());
-  depthInfo = *pointCache.getElemBeforeTime(ros::Time::now());
+  auto auxInfo = infoCache.getElemBeforeTime(msg.header.stamp);
+  auto auxDepthInfo = pointCache.getElemBeforeTime(msg.header.stamp);
+
+  if(auxInfo == nullptr || auxDepthInfo == nullptr){
+    // NOTE This happens often. Check with the real robot
+    // ROS_WARN("Message received from cache is null");
+    return;
+  }
+
+  info = *auxInfo;
+  depthInfo = *auxDepthInfo;
+
   geometry_msgs::PoseArray positions;
   cv::Mat f32image;
   cv_bridge::CvImagePtr cvPtr = cv_bridge::toCvCopy(depthInfo, sensor_msgs::image_encodings::TYPE_32FC1);
@@ -199,19 +209,6 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg)
     ROS_WARN("%s", ex.what());
     ros::Duration(1.0).sleep();
   }
-
-  // auto a = camera_to_torso.getBasis();
-  // for (size_t y = 0; y < 3; y++)
-  // {
-  //   for (size_t x = 0; x < 3; x++)
-  //   {
-  //     std::cout << round(a[y][x]) << "\t";
-  //   }
-  //   std::cout << "\n";
-  // }
-  // std::cout << "\n";
-  // auto b = camera_to_torso.getOrigin();
-  // std::cout << b[0] << " " << b[1] << " " << b[2] << "\n\n";
 
   bool first = true;
   for (geometry_msgs::Pose pose : msg.poses)

@@ -62,3 +62,17 @@ Possibile che manchi questa libreria
 ```bash
 sudo apt install libxcb-cursor-dev
 ```
+# Octomap in simulazione
+In caso in cui non si metta `use_moveit_camera:=true` al momento di far partire
+il nodo o con il robot vero non configurato per generare octomap c'e' il nodo
+tomato_octo e in particolari il launch file ```tomato_octo.launch```. Lanciando
+questo parte l'octomap_server e il nodo responsabile per dare alla PlanningScene
+la octomap.
+
+In caso si faccia andare in simulazione e' necessario anche far andare il
+seguente comando:
+
+``` bash
+rosrun topic_tools throttle messages /xtion/depth_registered/points 3  /throttle_filtering_points/filtered_points
+```
+Nel robot vero viene gia' pubblicato
