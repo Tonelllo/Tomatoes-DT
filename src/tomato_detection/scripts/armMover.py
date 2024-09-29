@@ -3,7 +3,7 @@
 import moveit_commander
 from geometry_msgs.msg import PoseStamped, PointStamped
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
-from geometry_msgs.msg import PoseArray, Quaternion
+from geometry_msgs.msg import Quaternion
 from moveit_msgs.msg import PlanningScene, AllowedCollisionEntry, PlanningSceneComponents
 from geometry_msgs.msg import Point, Pose
 import sys
@@ -33,6 +33,13 @@ DISTANCE_THRESHOLD = 0.05
 PLANNING_TIMEOUT = 0.5
 BASKET_JOINT_POSITION = [0.10, 1.47, 0.16, 0.0, 2.22, -1.9, -0.48, -1.39]
 
+# These settings generate 20 grasp positions
+L_ANGLE = 60
+R_ANGLE = 60
+T_ANGLE = 0
+D_ANGLE = 60
+RL_STEP = 30
+TD_STEP = 20
 
 class States(Enum):
     """States for the state machine."""
@@ -236,10 +243,10 @@ def generate_grasp_poses(object_pose, radius=APPROACH_OFFSET):
 
     # altitude is yaw
     # NOTE MIN, MAX, STEP
-    for altitude in range(180, 270, 30):  # NOQA
+    for altitude in range(180-L_ANGLE, 180+R_ANGLE + 1, RL_STEP):  # NOQA
         altitude = math.radians(altitude)
         # azimuth is pitch
-        for azimuth in range(-60, 60, 30):  # NOQA
+        for azimuth in range(T_ANGLE, D_ANGLE + 1, TD_STEP):  # NOQA
             azimuth = math.radians(azimuth)
             # This gets all the positions
             x = ori_x + radius * math.cos(azimuth) * math.cos(altitude)
