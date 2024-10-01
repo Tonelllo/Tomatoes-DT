@@ -41,7 +41,7 @@ def callback(data):
     image = bridge.imgmsg_to_cv2(data, desired_encoding="bgr8")
     # result = model.track(image, persist=True, verbose=False,
     #                      tracker=node_path + "custom_botsort.yaml")
-    results = model.predict(image, verbose=False, stream=True)
+    results = model.predict(image, verbose=False, stream=False)
 
     result = None
 
