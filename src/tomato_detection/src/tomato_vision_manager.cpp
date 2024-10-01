@@ -20,8 +20,6 @@
 #include <Eigen/Core>
 #include <ros/ros.h>
 #include <strings.h>
-#include "std_msgs/Empty.h"
-#include "std_srvs/Empty.h"
 #include "tomato_detection/getLatestTomatoPositionsRequest.h"
 #include "tomato_detection/getLatestTomatoPositionsResponse.h"
 #include "tomato_vision_manager.h"
@@ -205,19 +203,6 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg)
     ROS_WARN("%s", ex.what());
     ros::Duration(1.0).sleep();
   }
-
-  // auto a = camera_to_torso.getBasis();
-  // for (size_t y = 0; y < 3; y++)
-  // {
-  //   for (size_t x = 0; x < 3; x++)
-  //   {
-  //     std::cout << round(a[y][x]) << "\t";
-  //   }
-  //   std::cout << "\n";
-  // }
-  // std::cout << "\n";
-  // auto b = camera_to_torso.getOrigin();
-  // std::cout << b[0] << " " << b[1] << " " << b[2] << "\n\n";
 
   bool first = true;
   for (geometry_msgs::Pose pose : msg.poses)

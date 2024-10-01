@@ -41,6 +41,7 @@ D_ANGLE = 60
 RL_STEP = 30
 TD_STEP = 20
 
+
 class States(Enum):
     """States for the state machine."""
 
@@ -64,7 +65,6 @@ def closeGripper(tomato_radius):
     """
 
     # move_group.attach_object("tarnet_tomato", "gripper_link")
-
 
     goal = FollowJointTrajectoryGoal()
     goal.trajectory.joint_names = [
@@ -398,11 +398,13 @@ def planNextApproach(goal_pose, radius):
 status_mutex = Lock()
 status_array = []
 
+
 def statusCallback(status):
     global status_array
     status_mutex.acquire()
     status_array = status.status_list
     status_mutex.release()
+
 
 def pickTomato():
     """
@@ -510,7 +512,8 @@ def pickTomato():
             rospy.loginfo("Plannig back")
             target = [l_approach_pose]
             move_group.set_start_state(move_group.get_current_state())
-            (path, frac) = move_group.compute_cartesian_path(target, 0.01, 0, avoid_collisions=False)
+            (path, frac) = move_group.compute_cartesian_path(
+                target, 0.01, 0, avoid_collisions=False)
             move_group.set_pose_target(l_approach_pose)
             success = move_group.execute(path, wait=True)
 
@@ -659,7 +662,7 @@ def getTomatoPoses():
             goal_pose.pose.orientation.w = 0.7071068
             id = pose.orientation.y
             # NOTE 0 because TIAGO will stop when closing too hard
-            radius = 0 #pose.orientation.z
+            radius = 0  # pose.orientation.z
             poses.append(goal_pose)
         else:
             rospy.logerr("Received NaN")
@@ -699,7 +702,8 @@ head_client.wait_for_server()
 rospy.wait_for_service("/tomato_counting/get_best_tilt")
 rospy.loginfo("Service get_best_tilt ready")
 
-status_sub = rospy.Subscriber("/move_group/status", GoalStatusArray, statusCallback)
+status_sub = rospy.Subscriber(
+    "/move_group/status", GoalStatusArray, statusCallback)
 
 print("Current planner", move_group.get_planner_id())
 

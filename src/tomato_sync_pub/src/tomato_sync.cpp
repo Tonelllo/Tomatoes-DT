@@ -1,18 +1,12 @@
 #include <boost/iterator/minimum_category.hpp>
 #include <mutex>
-#include "cv_bridge/cv_bridge.h"
 #include "pcl_conversions/pcl_conversions.h"
 #include "ros/init.h"
-#include "ros/ros.h"
-#include "moveit_msgs/PlanningScene.h"
 #include "ros/subscriber.h"
 #include "ros/time.h"
 #include "sensor_msgs/CameraInfo.h"
 #include "sensor_msgs/Image.h"
 #include "sensor_msgs/PointCloud2.h"
-#include "opencv2/core/types.hpp"
-#include "opencv2/highgui.hpp"
-#include "sensor_msgs/image_encodings.h"
 
 class SincPublisher
 {
@@ -46,11 +40,11 @@ public:
       }
     }
 
-    cv::Mat testImg;
-    cv_bridge::CvImagePtr cvPtr = cv_bridge::toCvCopy(depthImage, sensor_msgs::image_encodings::TYPE_32FC1);
-    cvPtr->image.copyTo(testImg);
-    cv::imshow("gatto", testImg);
-    cv::waitKey(100);
+    // cv::Mat testImg;
+    // cv_bridge::CvImagePtr cvPtr = cv_bridge::toCvCopy(depthImage, sensor_msgs::image_encodings::TYPE_32FC1);
+    // cvPtr->image.copyTo(testImg);
+    // cv::imshow("gatto", testImg);
+    // cv::waitKey(100);
 
     pcl::toROSMsg(pc2, rgbImage);
 

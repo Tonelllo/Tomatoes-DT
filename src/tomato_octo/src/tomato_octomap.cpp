@@ -1,6 +1,6 @@
-#include "ros/ros.h"
 #include "octomap_msgs/Octomap.h"
 #include "moveit_msgs/PlanningScene.h"
+#include "ros/node_handle.h"
 
 class OctoUpdater{
     ros::NodeHandle mNh;
