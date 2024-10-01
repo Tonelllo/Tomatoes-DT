@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(tomato_octo)
+project(tomato_sync_pub)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -11,8 +11,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
     roscpp
-    octomap_msgs
-    moveit_msgs
+    pcl_conversions
     cv_bridge
 )
 
@@ -138,7 +137,7 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix en/xtion/rgb/camera_infosures that target names across packages don't collide
-add_executable(tomato_octomap src/tomato_octomap.cpp)
+add_executable(tomato_sync src/tomato_sync.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -148,10 +147,10 @@ add_executable(tomato_octomap src/tomato_octomap.cpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-add_dependencies(tomato_octomap ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(tomato_sync ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(tomato_octomap
+target_link_libraries(tomato_sync
   ${catkin_LIBRARIES}
 )
 

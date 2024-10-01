@@ -346,8 +346,8 @@ def getNewValidTomato(lt):
 
     if index == len(lt):
         rospy.logwarn("All reachable tomatoes have been picked")
-        # rospy.signal_shutdown("FINISHED TOMATOES")
-        # sys.exit()
+        rospy.signal_shutdown("FINISHED TOMATOES")
+        sys.exit()
 
     return lt[index]
 
@@ -494,8 +494,8 @@ def pickTomato():
             else:
                 # processed_tomatoes.append(
                 #     np.array([goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z]))
-                rospy.logwarn("Planning pick FAIL")
-                state = States.PLAN_HOME
+                rospy.logwarn("Planning pick FAIL, frac: ", frac)
+                state = States.PLAN_BACK
 
         elif state == States.PLAN_GRAB:
             old_state = state
@@ -568,8 +568,8 @@ def pickTomato():
 
             if not res:
                 print("Waiting for completion")
-                for a in status_array:
-                    print(a.status)
+                # for a in status_array:
+                #     print(a.status)
                 state = States.PLAN_RELEASE
                 rospy.sleep(1.0)
                 continue

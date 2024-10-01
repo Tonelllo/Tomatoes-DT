@@ -22,7 +22,6 @@ bridge = CvBridge()
 rospack = rospkg.RosPack()
 node_path = rospack.get_path("tomato_detection") + "/models/"
 model = YOLO(node_path + "tomato_80prec_70rec.pt")
-tomatoes = {}
 pub = rospy.Publisher("tomato_detection/detected_tomatoes",
                       PoseArray, queue_size=5)
 imgPublisher = rospy.Publisher(
@@ -40,9 +39,14 @@ def publishTrackingResult(img):
 
 def callback(data):
     image = bridge.imgmsg_to_cv2(data, desired_encoding="bgr8")
-    result = model.track(image, persist=True, verbose=False,
-                         tracker=node_path + "custom_botsort.yaml")
-    boxes = result[0].boxes.xywh.cpu()
+    # result = model.track(image, persist=True, verbose=False,
+    #                      tracker=node_path + "custom_botsort.yaml")
+    results = model.predict(image, verbose=False, stream=True)
+
+    result = None
+
+    for elem in results:
+        result = elem
 
     """
     0 -> 'fully_ripened'
@@ -61,52 +65,48 @@ def callback(data):
 
     # publishTrackingResult(wanted_result.plot())
     # TODO Why does it keep displaying all the bounding boxes?
-    publishTrackingResult(result[0].plot())
-
+    publishTrackingResult(result.plot())
     # TODO USE HASH TABLE FOR tomatoes
-    if result[0].boxes.id is not None:
-        publishTrackingResult(result[0].plot())
-        track_ids = result[0].boxes.id.int().cpu().tolist()
-        labels = result[0].boxes.cls.cpu()
+    if result is not None:
+        # publishTrackingResult(result.plot())
+        # track_ids = result[0].boxes.id.int().cpu().tolist()
+        # print(track_ids)
+        boxes = result.boxes.xywh.cpu()
+        labels = result.boxes.cls.cpu()
 
         points = []
-        currently_detected_keys = []
-        for box, id, label in zip(boxes, track_ids, labels):
-            currently_detected_keys.append(id)
-            if id not in tomatoes:
-                # You lose the first
-                tomatoes[id] = {"arr": [], "cls": int(label), "id": int(id)}
-            else:
-                x, y, w, h = box
-                tomatoes[id]["arr"].insert(0, (x, y, w))
-                if len(tomatoes[id]["arr"]) > MAX_HISTORY:
-                    tomatoes[id]["arr"].pop()
-                    points.append(np.std(tomatoes[id]["arr"], axis=0))
+        # currently_detected_keys = []
 
-        for key in list(tomatoes):
-            if key not in currently_detected_keys:
-                tomatoes.pop(key)
+        tomatoes = {}
+        index = 0
+        for box, label in zip(boxes, labels):
+            # currently_detected_keys.append(id)
+            # if id not in tomatoes:
+                # You lose the first
+            x, y, w, h = box
+            tomatoes[index] = {"pos": (x, y, w), "cls": int(label)}
+            index += 1
+
         # This keys are sorted based on how long they have
         # been detected. Smallest indexes are the tomatoes
         # that have not disappeared in the tracking thus
         # they should be quite easily visible
-        sorted_keys_by_time = list(tomatoes.keys())
-        sorted_keys_by_time.sort()
+        # sorted_keys_by_time = list(tomatoes.keys())
+        # sorted_keys_by_time.sort()
         # print("Sorted by stab: ", sorted_keys_by_time)
 
         out = PoseArray()
-        for tomato in sorted_keys_by_time:
-            if len(tomatoes[tomato]["arr"]) == MAX_HISTORY:
-                elem = Pose()
-                avg = np.mean(tomatoes[tomato]["arr"], axis=0)
-                elem.orientation.x = avg[0]
-                elem.orientation.y = avg[1]
-                elem.orientation.z = tomatoes[tomato]["cls"]
-                elem.orientation.w = tomatoes[tomato]["id"]
-                elem.position.x = avg[2]  # Horizontal daimeter in pixels
-                out.poses.append(elem)
+        for key in tomatoes:
+            elem = Pose()
+            (x, y, w) = tomatoes[key]["pos"]
+            elem.orientation.x = x
+            elem.orientation.y = y
+            elem.orientation.z = tomatoes[key]["cls"]
+            elem.orientation.w = -1
+            elem.position.x = w  # Horizontal daimeter in pixels
+            out.poses.append(elem)
                 # out.header = sensor_msgs.msg.Header()
-                out.header.stamp = rospy.Time.now()
+        out.header.stamp = data.header.stamp
         pub.publish(out)
 
         # TODO maybe sort by accuracy
@@ -121,7 +121,8 @@ def callback(data):
 
 rospy.init_node("detector")
 # rospy.Subscriber("xtion/rgb/image_rect_color", Image, callback)
-rospy.Subscriber("xtion/rgb/image_raw", Image, callback)
+rospy.Subscriber("/tomato_sync/image_rgb", Image, callback)
 # model.track(, show=True)
 
 rospy.spin()
+# rosrun topic_tools throttle messages /xtion/depth_registered/points 20 /throttle_filtering_points/filtered_points
