@@ -75,7 +75,7 @@ def closeGripper(tomato_radius):
     point = JointTrajectoryPoint()
     point.positions = [tomato_radius, tomato_radius]
     point.effort = [EFFORT, EFFORT]
-    point.time_from_start = rospy.Duration(1.0)
+    point.time_from_start = rospy.Duration(0.5)
     goal.trajectory.points.append(point)
 
     gripper_client.send_goal(goal)
@@ -93,7 +93,7 @@ def openGripper():
 
     point = JointTrajectoryPoint()
     point.positions = [OPEN_GRIPPER_POS, OPEN_GRIPPER_POS]
-    point.time_from_start = rospy.Duration(1.0)
+    point.time_from_start = rospy.Duration(0.5)
     goal.trajectory.points.append(point)
 
     gripper_client.send_goal(goal)
@@ -680,7 +680,7 @@ names = robot.get_group_names()
 scene = moveit_commander.PlanningSceneInterface()
 move_group = moveit_commander.MoveGroupCommander(GROUP_NAME)
 # move_group.set_planner_id("LBTRRT")
-move_group.set_planner_id("SPARS2")
+move_group.set_planner_id("KPIECEkConfigDefault")
 move_group.set_planning_time(PLANNING_TIMEOUT)
 gripper_client = actionlib.SimpleActionClient(
     "/gripper_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
