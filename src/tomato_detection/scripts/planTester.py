@@ -1,102 +1,128 @@
-import rospy
 import moveit_commander
-from geometry_msgs.msg import Pose, PoseArray, Vector3
-from moveit_msgs.msg import MoveGroupGoal, MoveGroupAction, Constraints, PositionConstraint, OrientationConstraint
-import actionlib
+from geometry_msgs.msg import PoseStamped, PointStamped
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+from geometry_msgs.msg import Quaternion
+from moveit_msgs.msg import PlanningScene, AllowedCollisionEntry, PlanningSceneComponents
+from geometry_msgs.msg import Point, Pose
 import sys
-
-rospy.init_node("plan_tester")
-
-pp = PoseArray()
-p = Pose()
-p.position.x = 0.9
-p.position.y = 0.0
-p.position.z = 0.9
-p1 = Pose()
-p1.position.x = 0.8
-p1.position.y = 0.0
-p1.position.z = 0.8
-p2 = Pose()
-p2.position.x = 0.7
-p2.position.y = 0.0
-p2.position.z = 0.7
-pp.poses.append(p)
+import rospy
+import copy
+from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
+from control_msgs.msg import PointHeadAction, PointHeadGoal
+from actionlib_msgs.msg import GoalStatusArray
+import actionlib
+from tf.transformations import quaternion_from_euler, quaternion_multiply, euler_from_quaternion
+from visualization_msgs.msg import Marker
+import math
+from enum import Enum
+import numpy as np
+from tomato_detection.srv import BestPos
+from threading import Lock
+from tomato_detection.srv import LatestTomatoPositions
+from queue import Queue
+import threading
 
 moveit_commander.roscpp_initialize(sys.argv)
-robot = moveit_commander.RobotCommander()
-names = robot.get_group_names()
+rospy.init_node("plan_tester")
 scene = moveit_commander.PlanningSceneInterface()
 move_group = moveit_commander.MoveGroupCommander("arm_torso")
+move_group.set_planner_id("KPIECEkConfigDefault")
+move_group.set_planning_time(3)
 
-v1 = Vector3()
-v1.x = 0.9
-v1.y = 0.0
-v1.z = 0.9
-
-pc = PositionConstraint()
-pc.header.frame_id = "base_footprint"
-pc.link_name = "gripper_link"
-pc.target_point_offset = v1
-pc.weight = 100
-
-pc1 = PositionConstraint()
-pc1.header.frame_id = "base_footprint"
-pc1.link_name = "gripper_link"
-pc1.target_point_offset.x = 0.8
-pc1.target_point_offset.y = 0.0
-pc1.target_point_offset.z = 0.8
-pc1.weight = 100
-
-oc = OrientationConstraint()
-oc.header.frame_id = "base_footprint"
-oc.link_name = "gripper_link"
-oc.orientation.x = 0.0
-oc.orientation.y = 0.0
-oc.orientation.z = 0.0
-oc.orientation.w = 0.1
-oc.weight = 100
-
-c1 = Constraints()
-c1.position_constraints = [pc, pc1]
-c1.orientation_constraints = [oc, oc]
+status_mutex = Lock()
+status_array = []
 
 
-mgg = MoveGroupGoal()
+# def statusCallback(status):
+#     global status_array
+#     status_mutex.acquire()
+#     status_array = status.status_list
+#     status_mutex.release()
 
-mgg.request.start_state = move_group.get_current_state()
-mgg.request.group_name = "arm_torso"
-mgg.request.num_planning_attempts = 1
-mgg.request.max_velocity_scaling_factor = 1
-mgg.request.max_acceleration_scaling_factor = 1
-mgg.request.allowed_planning_time = 5.0
-mgg.request.planner_id = ""
-mgg.request.goal_constraints = [c1]
-mgg.planning_options.plan_only = True
-mgg.planning_options.look_around = False
-mgg.planning_options.planning_scene_diff.is_diff = True
-mgg.planning_options.planning_scene_diff.robot_state.is_diff = True
 
-tester = actionlib.SimpleActionClient("/move_group", MoveGroupAction)
-tester.wait_for_server()
+def getNewJointpos(move_group_joint_pos, latest_planned_state):
+    index = 0
+    pcount = 0
+    amg = np.asarray(move_group_joint_pos)
+    alp = np.asarray(latest_planned_state.joint_state.position)
+    for name in latest_planned_state.joint_state.name:
+        if name in ["torso_lift_joint", "arm_1_joint", "arm_2_joint", "arm_3_joint", "arm_4_joint", "arm_5_joint", "arm_6_joint", "arm_7_joint"]:
+            alp[index] = amg[pcount]
+            pcount += 1
+        index += 1
+    return tuple(alp)
 
-rospy.loginfo("Send goal")
-tester.send_goal(mgg)
-tester.wait_for_result()
-rospy.loginfo("Sent goal")
 
-rospy.spin()
+def worker():
+    while True:
+        (s, t, tt, e) = future_plans.get(block=True)
+        move_group.execute(t, wait=True)
+        print("executing while planning")
+        if future_plans.empty():
+            break
 
-# 00117     joint_state_target_.reset(new robot_state::RobotState(getRobotModel()));
-# 00118     joint_state_target_->setToDefaultValues();
-# 00119     active_target_ = JOINT;
-# 00120     can_look_ = false;
-# 00121     can_replan_ = false;
-# 00122     replan_delay_ = 2.0;
-# 00123     goal_joint_tolerance_ = 1e-4;
-# 00124     goal_position_tolerance_ = 1e-4;     // 0.1 mm
-# 00125     goal_orientation_tolerance_ = 1e-3;  // ~0.1 deg
-# 00126     planning_time_ = 5.0;
-# 00127     num_planning_attempts_ = 1;
-# 00128     max_velocity_scaling_factor_ = 1.0;
-# 00129     max_acceleration_scaling_factor_ = 1.0;
-# 00130     initializing_constraints_ = false;
+
+BASKET_JOINT_POSITION = [0.10, 1.47, 0.16, 0.0, 2.22, -1.9, -0.48, -1.39]
+
+goal_tomato = PoseStamped()
+goal_tomato.header.frame_id = "base_footprint"
+goal_tomato.pose.position.x = 0.8
+goal_tomato.pose.position.y = 0.0
+goal_tomato.pose.position.z = 0.8
+goal_tomato.pose.orientation.x = 0
+goal_tomato.pose.orientation.y = 0
+goal_tomato.pose.orientation.z = 0
+goal_tomato.pose.orientation.w = 1
+
+future_plans = Queue()
+latest_planned_state = move_group.get_current_state()
+move_group.set_start_state_to_current_state()
+first = True
+
+x = threading.Thread(target=worker, args=())
+x.start()
+
+for i in range(0, 2):
+    if first:
+        first = False
+    else:
+        move_group.set_start_state(latest_planned_state)
+
+    move_group.set_joint_value_target(BASKET_JOINT_POSITION)
+    next_plan = move_group.plan()
+    (s, t, tt, e) = next_plan
+    future_plans.put(next_plan)
+
+    aux = t.joint_trajectory.points[-1]
+    at = getNewJointpos(aux.positions, latest_planned_state)
+    latest_planned_state.joint_state.position = at
+
+    move_group.set_start_state(latest_planned_state)
+    move_group.set_pose_target(goal_tomato)
+    # move_group.set_random_target()
+
+    next_plan = move_group.plan()
+    (s, t, tt, e) = next_plan
+    future_plans.put(next_plan)
+
+    aux = t.joint_trajectory.points[-1]
+    at = getNewJointpos(aux.positions, latest_planned_state)
+    latest_planned_state.joint_state.position = at
+
+    rospy.sleep(3)
+
+
+x.join()
+
+# while not future_plans.empty():
+#     print("Executing after planning")
+#     (s, t, tt, e) = future_plans.get(block=True)
+#     move_group.execute(t, wait=True)
+
+# status_sub = rospy.Subscriber(
+#     "/move_group/status", GoalStatusArray, statusCallback)
+
+# rospy.spin()
+
+
+# /home/tonello/TiagoWs/src/tiago_moveit_config/config/ompl_planning.yaml
