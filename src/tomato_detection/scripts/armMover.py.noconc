@@ -21,8 +21,6 @@ import numpy as np
 from tomato_detection.srv import BestPos
 from threading import Lock
 from tomato_detection.srv import LatestTomatoPositions
-from queue import Queue
-import threading
 
 GROUP_NAME = "arm_torso"
 TARGET_OFFSET = 0.21
@@ -34,10 +32,6 @@ OPEN_GRIPPER_POS = 0.05
 DISTANCE_THRESHOLD = 0.05
 PLANNING_TIMEOUT = 0.5
 BASKET_JOINT_POSITION = [0.10, 1.47, 0.16, 0.0, 2.22, -1.9, -0.48, -1.39]
-ARM_TORSO = ["torso_lift_joint", "arm_1_joint", "arm_2_joint",
-             "arm_3_joint", "arm_4_joint", "arm_5_joint", "arm_6_joint", "arm_7_joint"]
-GRIPPER = ["gripper_left_finger_joint", "gripper_right_finger_joint"]
-HEAD = ["head_1_joint", "head_2_joint"]
 
 # These settings generate 20 grasp positions
 L_ANGLE = 60
@@ -51,7 +45,7 @@ TD_STEP = 20
 class States(Enum):
     """States for the state machine."""
 
-    RESET = 0
+    GET_FIRST_TOMATOES = 0
     PLAN_APPROACH = 1
     PLAN_PICK = 2
     PLAN_GRAB = 3
@@ -412,31 +406,6 @@ def statusCallback(status):
     status_mutex.release()
 
 
-def getNewJointPos(joint_names, move_group_joint_pos, latest_planned_state):
-    index = 0
-    pcount = 0
-    amg = np.asarray(move_group_joint_pos)
-    alp = np.asarray(latest_planned_state.joint_state.position)
-    for name in latest_planned_state.joint_state.name:
-        if name in joint_names:
-            alp[index] = amg[pcount]
-            pcount += 1
-        index += 1
-    return tuple(alp)
-
-
-future_plans = Queue()
-
-
-def worker():
-    print("Worker Called")
-    while True:
-        t = future_plans.get(block=True)
-        move_group.execute(t, wait=True)
-        print("Executing")
-    print("Worker Exited")
-
-
 def pickTomato():
     """
     State machine that enables the picking of the tomatoes.
@@ -446,7 +415,8 @@ def pickTomato():
     :param radius Double: Radius of the tomato to pick
     """
     global status_array
-    state = States.RESET
+    failed_pick = False
+    state = States.GET_FIRST_TOMATOES
     old_state = state
     l_approach_pose = Pose()
     l_pick_pose = Pose()
@@ -455,16 +425,11 @@ def pickTomato():
     radius = None
     next_tomato = None
     initial_robot_state = None
-    latest_planned_state = None
-    HOME_STATE = None
 
     rospy.sleep(1.0)
 
-    # (poses, tomato_id, radius) = getTomatoPoses()
-    # goal_pose = getNewValidTomato(poses)
-
     while True:
-        if state == States.RESET:
+        if state == States.GET_FIRST_TOMATOES:
             # TODO move to external function
             resetHead()
             openGripper()
@@ -472,123 +437,116 @@ def pickTomato():
             move_group.set_planning_time(3.0)
             suc = move_group.go(wait=True)
             move_group.set_planning_time(PLANNING_TIMEOUT)
-            HOME_STATE = move_group.get_current_state()
-            latest_planned_state = HOME_STATE
+            initial_robot_state = move_group.get_current_state()
             if not suc:
                 rospy.signal_shutdown("ERROR NOT RECOVERABLE")
                 sys.exit()
                 rospy.logerr("Start not reachable")
 
-            # processed_tomatoes.append(
-            #     np.array([goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z]))
+            (poses, tomato_id, radius) = getTomatoPoses()
+            current_tomato = getNewValidTomato(poses)
+            goal_pose = current_tomato
+            lookAtTomato(goal_pose)
+            processed_tomatoes.append(
+                np.array([goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z]))
             state = States.PLAN_APPROACH
 
         elif state == States.HOME:
-            break
-        elif state == States.PLAN_APPROACH:
             (poses, tomato_id, radius) = getTomatoPoses()
-            goal_pose = getNewValidTomato(poses)
+            if next_tomato is False:
+                state = States.GET_FIRST_TOMATOES
+                next_tomato = None
+            else:
+                state = States.PLAN_APPROACH
 
-            processed_tomatoes.append(
-                np.array([goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z]))
-
+        elif state == States.PLAN_APPROACH:
+            old_state = state
             rospy.loginfo("Planning approach for tomato [%d]", tomato_id)
             setMarker(goal_pose.pose)
             # TODO Check for plan fail
-            move_group.set_start_state(HOME_STATE)
-            next_tomato = planNextApproach(goal_pose, radius)
-            (success, traj, time, error, gpos, ppos, idx) = next_tomato
-            future_plans.put(traj)
-            # lookAtTomato(goal_pose)
-            at = getNewJointPos(
-                ARM_TORSO, traj.joint_trajectory.points[-1].positions, HOME_STATE)
-            latest_planned_state.joint_state.position = at
-
-            # LATER
+            if next_tomato is None:
+                rospy.loginfo("First iteration")
+                next_tomato = planNextApproach(goal_pose, radius)
+                if next_tomato is False:
+                    next_tomato = None
+                    state = States.GET_FIRST_TOMATOES
+                    continue
+            lookAtTomato(goal_pose)
+            (success, trajectory, time, error, gpos, ppos, idx) = next_tomato
+            move_group.execute(trajectory, wait=True)
             # TODO probably not needed
             l_approach_pose = copy.deepcopy(gpos)
             l_pick_pose = copy.deepcopy(ppos)
             rospy.logwarn("Planning approach SUCCESS")
 
-            state = States.PLAN_PICK
+            state = States.EXECUTING_MOVEMENT
         elif state == States.PLAN_PICK:
-            move_group.set_start_state(latest_planned_state)
-            (traj, frac) = move_group.compute_cartesian_path(
-                [l_pick_pose], 0.01, 0)
-            future_plans.put(traj)
-            at = getNewJointPos(
-                ARM_TORSO, traj.joint_trajectory.points[-1].positions, HOME_STATE)
-            latest_planned_state.joint_state.position = at
+            # rospy.sleep(1.0)
+            old_state = state
+            rospy.loginfo("Planning pick for tomato [%d]", tomato_id)
+            target = [l_pick_pose]
+            move_group.set_start_state(move_group.get_current_state())
+            (path, frac) = move_group.compute_cartesian_path(target, 0.01, 0)
+            move_group.set_pose_target(l_pick_pose)
+            success = move_group.execute(path, wait=True)
 
-            state = States.PLAN_GRAB
-            # if success and frac > CARTESIAN_FAILURE_THRESHOLD:
-            #     rospy.loginfo("Planning pick SUCCESS")
-            #     state = States.EXECUTING_MOVEMENT
-            # else:
-            #     # processed_tomatoes.append(
-            #     #     np.array([goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z]))
-            #     rospy.logwarn("Planning pick FAIL, frac: ", frac)
-            #     state = States.PLAN_BACK
+            if success and frac > CARTESIAN_FAILURE_THRESHOLD:
+                rospy.loginfo("Planning pick SUCCESS")
+                state = States.EXECUTING_MOVEMENT
+            else:
+                # processed_tomatoes.append(
+                #     np.array([goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z]))
+                rospy.logwarn("Planning pick FAIL, frac: ", frac)
+                state = States.PLAN_BACK
 
         elif state == States.PLAN_GRAB:
+            old_state = state
             rospy.loginfo("Planning grab for tomato [%d]", tomato_id)
-            move_gripper.set_goal_joint_tolerance(0.5)
-            move_gripper.set_start_state(latest_planned_state)
-            move_gripper.set_joint_value_target([0.01, 0.01])
-            next_tomato = move_gripper.plan()
-            (s, traj, tt, e) = next_tomato
-            future_plans.put(traj)
-            at = getNewJointPos(
-                GRIPPER, traj.joint_trajectory.points[-1].positions, HOME_STATE)
-            latest_planned_state.joint_state.position = at
+            closeGripper(radius)
+            # rospy.sleep(1)
+            # TODO how to check if grab was successful
             state = States.PLAN_BACK
 
         elif state == States.PLAN_BACK:
+            old_state = state
             rospy.loginfo("Plannig back")
-            move_group.set_start_state(latest_planned_state)
-            (traj, frac) = move_group.compute_cartesian_path(
-                [l_approach_pose], 0.01, 0)
-            future_plans.put(traj)
-            at = getNewJointPos(
-                ARM_TORSO, traj.joint_trajectory.points[-1].positions, HOME_STATE)
-            latest_planned_state.joint_state.position = at
+            target = [l_approach_pose]
+            move_group.set_start_state(move_group.get_current_state())
+            (path, frac) = move_group.compute_cartesian_path(
+                target, 0.01, 0, avoid_collisions=False)
+            move_group.set_pose_target(l_approach_pose)
+            success = move_group.execute(path, wait=True)
 
-            state = States.PLAN_HOME
             # Here in any case you go back home
-            # if success and frac >= CARTESIAN_FAILURE_THRESHOLD:
-            #     rospy.loginfo("Planning back SUCCESS")
-            #     state = States.EXECUTING_MOVEMENT
-            # else:
-            #     rospy.logwarn("Planning back FAIL")
-            #     state = States.PLAN_HOME
+            if success and frac >= CARTESIAN_FAILURE_THRESHOLD:
+                rospy.loginfo("Planning back SUCCESS")
+                state = States.EXECUTING_MOVEMENT
+            else:
+                rospy.logwarn("Planning back FAIL")
+                state = States.PLAN_HOME
 
         elif state == States.PLAN_HOME:
-            # resetHead()
+            resetHead()
             removeSphere()
             old_state = state
             rospy.loginfo("Planning approach for HOME")
-            move_group.set_start_state(latest_planned_state)
             move_group.set_joint_value_target(BASKET_JOINT_POSITION)
             move_group.set_planning_time(3.0)
-            next_tomato = move_group.plan()
-            (s, t, tt, e) = next_tomato
-            future_plans.put(t)
-
-            at = getNewJointPos(
-                ARM_TORSO, t.joint_trajectory.points[-1].positions, HOME_STATE)
-            latest_planned_state.joint_state.position = at
+            move_group.set_start_state(move_group.get_current_state())
+            (s, t, tt, e) = move_group.plan()
+            move_group.execute(t, wait=False)
+            success = True
             # TODO What if it fails?
-            # if not success:
-            #     rospy.logfatal("Home not reachable trying random position")
-            #     move_group.set_random_target()
-            #     move_group.go(wait=True)
-            #     move_group.stop()
-            #     move_group.clear_pose_targets()
-            #     state = States.PLAN_HOME
-            # else:
-            #     move_group.set_planning_time(PLANNING_TIMEOUT)
-            #     state = States.PLAN_NEXT_TOMATO
-            state = States.PLAN_RELEASE
+            if not success:
+                rospy.logfatal("Home not reachable trying random position")
+                move_group.set_random_target()
+                move_group.go(wait=True)
+                move_group.stop()
+                move_group.clear_pose_targets()
+                state = States.PLAN_HOME
+            else:
+                move_group.set_planning_time(PLANNING_TIMEOUT)
+                state = States.PLAN_NEXT_TOMATO
 
         elif state == States.PLAN_NEXT_TOMATO:
             new_tomato = getNewValidTomato(poses)
@@ -603,17 +561,32 @@ def pickTomato():
             state = States.PLAN_RELEASE
 
         elif state == States.PLAN_RELEASE:
-            rospy.loginfo("Planning release for tomato [%d]", tomato_id)
-            move_gripper.set_goal_joint_tolerance(0.01)
-            move_gripper.set_start_state(latest_planned_state)
-            move_gripper.set_joint_value_target([0.044, 0.044])
-            next_tomato = move_gripper.plan()
-            (s, traj, tt, e) = next_tomato
-            future_plans.put(traj)
-            at = getNewJointPos(
-                GRIPPER, traj.joint_trajectory.points[-1].positions, HOME_STATE)
-            latest_planned_state.joint_state.position = at
-            state = States.PLAN_APPROACH
+            res = True
+            status_mutex.acquire()
+            for status in status_array:
+                if status.status not in [3, 4]:
+                    res = False
+                    break
+            status_mutex.release()
+
+            if not res:
+                print("Waiting for completion")
+                # for a in status_array:
+                #     print(a.status)
+                state = States.PLAN_RELEASE
+                rospy.sleep(1.0)
+                continue
+
+            old_state = state
+            rospy.loginfo("Planning release for tomato")
+            openGripper()
+            state = States.HOME
+
+        elif state == States.EXECUTING_MOVEMENT:
+            rospy.loginfo("Executing movement")
+            move_group.stop()
+            move_group.clear_pose_targets()
+            state = States(old_state.value + 1)
 
 
 processed_tomatoes = []
@@ -706,9 +679,8 @@ robot = moveit_commander.RobotCommander()
 names = robot.get_group_names()
 scene = moveit_commander.PlanningSceneInterface()
 move_group = moveit_commander.MoveGroupCommander(GROUP_NAME)
-move_gripper = moveit_commander.MoveGroupCommander("gripper")
 # move_group.set_planner_id("LBTRRT")
-move_group.set_planner_id("")
+move_group.set_planner_id("KPIECEkConfigDefault")
 move_group.set_planning_time(PLANNING_TIMEOUT)
 gripper_client = actionlib.SimpleActionClient(
     "/gripper_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
@@ -743,11 +715,9 @@ rospy.wait_for_service("/tomato_vision_manager/tomato_position_service")
 getTomatoPosesProxy = rospy.ServiceProxy(
     "/tomato_vision_manager/tomato_position_service", LatestTomatoPositions)
 
-x = threading.Thread(target=worker, args=())
-x.start()
-
 pickTomato()
 
+rospy.spin()
 
 # TODO s
 # - In case that no tomato has been found in next_tomato wait for the head
