@@ -114,7 +114,7 @@ private:
   cv::Mat colorSegmentation(cv::Mat, cv::Mat);
   void frameCallback(const sensor_msgs::ImageConstPtr& img);
   void yoloCallback(const sensor_msgs::ImageConstPtr& img);
-  void setFrame(QVideoSink*, cv::Mat);
+  void setFrame(QVideoSink*, cv::Mat&);
   QVideoSink* m_origSink = nullptr;
 
   QVideoSink* m_maskedSink = nullptr;

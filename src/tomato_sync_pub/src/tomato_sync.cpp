@@ -20,40 +20,34 @@ class SincPublisher
   std::mutex mCameraInfoMutex_;
 
 public:
-  void pc2Callback(sensor_msgs::PointCloud2 pc2)
+  void pc2Callback(const sensor_msgs::PointCloud2Ptr& pc2)
   {
     sensor_msgs::Image depthImage;
     sensor_msgs::Image rgbImage;
-    depthImage.width = pc2.width;
-    depthImage.height = pc2.height;
+    depthImage.width = pc2->width;
+    depthImage.height = pc2->height;
     depthImage.encoding = "32FC1";
     depthImage.step = depthImage.width * sizeof(float);
     depthImage.data.resize(depthImage.step * depthImage.height);
 
-    for (int row = 0; row < pc2.height; row++)
+    for (int row = 0; row < pc2->height; row++)
     {
-      for (int col = 0; col < pc2.width; col++)
+      for (int col = 0; col < pc2->width; col++)
       {
-        size_t pc2Index = pc2.row_step * row + pc2.point_step * col + pc2.fields[2].offset;
+        size_t pc2Index = pc2->row_step * row + pc2->point_step * col + pc2->fields[2].offset;
         size_t imgIndex = row * depthImage.step + col * sizeof(float);
-        memcpy(&depthImage.data[imgIndex], &pc2.data[pc2Index], sizeof(float));
+        memcpy(&depthImage.data[imgIndex], &pc2->data[pc2Index], sizeof(float));
       }
     }
 
-    // cv::Mat testImg;
-    // cv_bridge::CvImagePtr cvPtr = cv_bridge::toCvCopy(depthImage, sensor_msgs::image_encodings::TYPE_32FC1);
-    // cvPtr->image.copyTo(testImg);
-    // cv::imshow("gatto", testImg);
-    // cv::waitKey(100);
-
-    pcl::toROSMsg(pc2, rgbImage);
+    pcl::toROSMsg(*pc2, rgbImage);
 
     ros::Time syncTimestamp = ros::Time::now();
 
     mCameraInfoMutex_.lock();
-    depthImage.header.frame_id = pc2.header.frame_id;
-    rgbImage.header.frame_id = pc2.header.frame_id;
-    mCi_.header.frame_id = pc2.header.frame_id;
+    depthImage.header.frame_id = pc2->header.frame_id;
+    rgbImage.header.frame_id = pc2->header.frame_id;
+    mCi_.header.frame_id = pc2->header.frame_id;
 
     depthImage.header.stamp = syncTimestamp;
     rgbImage.header.stamp = syncTimestamp;

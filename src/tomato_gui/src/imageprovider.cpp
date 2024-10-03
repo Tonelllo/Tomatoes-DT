@@ -38,7 +38,7 @@ ImageProvider::ImageProvider(ros::NodeHandle& nh, QObject* parent) : m_image_tra
   setSavePath(modulePath + "/VisionConfig/config.toml");
 }
 
-void ImageProvider::setFrame(QVideoSink* sink, cv::Mat image)
+void ImageProvider::setFrame(QVideoSink* sink, cv::Mat& image)
 {
   if (sink)
   {
