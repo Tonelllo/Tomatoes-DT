@@ -18,7 +18,7 @@ KinematicController::KinematicController(std::shared_ptr<ros::NodeHandle> nodeHa
         std::string prefix)
     : nh_(nodeHandle)
     , spinner_(1)
-    , receivingFeedback_(true) // TODO: put back to false
+    , receivingFeedback_(false) // TODO: put back to false
     , feedbackTimeout_(1.0)
 
 {
@@ -76,13 +76,13 @@ KinematicController::KinematicController(std::shared_ptr<ros::NodeHandle> nodeHa
 
     tSTART_ = tLastFeedback_ = tLastControl_ = ros::Time::now();
 
-    jointNameToIndex_["arm_1_joint"] = 0;
-    jointNameToIndex_["arm_2_joint"] = 1;
-    jointNameToIndex_["arm_3_joint"] = 2;
-    jointNameToIndex_["arm_4_joint"] = 3;
-    jointNameToIndex_["arm_5_joint"] = 4;
-    jointNameToIndex_["arm_6_joint"] = 5;
-    jointNameToIndex_["arm_7_joint"] = 6;
+    jointNameToIndex_["arm_left_1_joint"] = 0;
+    jointNameToIndex_["arm_left_2_joint"] = 1;
+    jointNameToIndex_["arm_left_3_joint"] = 2;
+    jointNameToIndex_["arm_left_4_joint"] = 3;
+    jointNameToIndex_["arm_left_5_joint"] = 4;
+    jointNameToIndex_["arm_left_6_joint"] = 5;
+    jointNameToIndex_["arm_left_7_joint"] = 6;
     jointNameToIndex_["torso_lift_joint"] = 7;
     jointNames_.resize(jointNameToIndex_.size());
 
@@ -156,7 +156,8 @@ bool KinematicController::Initialization()
     qfb_single = qdotcontrol_single = Eigen::VectorXd::Zero(numJoints);
 
     // Q_unfolded position
-    std::vector<double> init_q_single = { { 0.011, 0.11, -1.4, -0.11, 1.57, 0.0, 0, 0 } };
+    std::vector<double> init_q_single = { { 0.1999847056063805, -1.1075034625473623, 1.5007917305833804, 2.786711567502493, 1.494900110618816, -1.7950379729871873, 1.3910358204945792, 0.012468573582920278 } };
+    //  { 0.011, -0.11, -1.4, -0.11, 1.57, 0.0, 0, 0 }
 
     stateDataMsg_.position.resize(numJoints);
     for (size_t i = 0; i < numJoints; i++){
@@ -528,8 +529,11 @@ void KinematicController::Run()
             }
 
             // CHECK IF THERE IS STILL INCOMING FEEDBACK
-            double dtFbk = (ros::Time::now() - tLastFeedback_).toSec();
-            //std::cout << "dtFbk:" << dtFbk << std::endl;
+            auto tNow = ros::Time::now();
+            double dtFbk = (tNow - tLastFeedback_).toSec();
+            std::cout << tc::yellow << "dtFbk:" << dtFbk << tc::none << std::endl;
+            std::cout << tc::yellow << "tLastFeedback_:" << tLastFeedback_ << tc::none << std::endl;
+            std::cout << tc::yellow << "tNow:" << tNow << tc::none << std::endl;
             if (dtFbk > feedbackTimeout_) {
                 receivingFeedback_ = false;
                 ROS_WARN_STREAM("Feedback not received for more than " << std::to_string(feedbackTimeout_) << " seconds. Switching to Idle.");
@@ -837,7 +841,7 @@ void KinematicController::StateDataCB(const sensor_msgs::JointState::ConstPtr &m
 {
     stateDataMsg_ = *msg;
 
-    //std::cerr << "KinematicController is receiving feedback!" << std::endl;
+    std::cerr << "KinematicController is receiving feedback!" << std::endl;
 
     //robotInfo_->arm_state_id = stateDataMsg_.arm_state_id;
     //robotInfo_->gripper_state_id = stateDataMsg_.gripper_state_id;
@@ -853,7 +857,7 @@ void KinematicController::StateDataCB(const sensor_msgs::JointState::ConstPtr &m
             auto myJointIdx = jointNameToIndex_[jointName];
             armPos(myJointIdx) = stateDataMsg_.position.at(fbkIdx);
             armVel(myJointIdx) = stateDataMsg_.velocity.at(fbkIdx);
-            //std::cerr << tc::bluL << "joint n " << myJointIdx << " has vel " << armVel(myJointIdx) << tc::none << std::endl;
+            std::cerr << tc::bluL << "joint n " << myJointIdx << " has vel " << armVel(myJointIdx) << tc::none << std::endl;
         }
     }
     

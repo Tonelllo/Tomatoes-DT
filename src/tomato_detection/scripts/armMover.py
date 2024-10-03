@@ -21,7 +21,7 @@ import numpy as np
 from tomato_detection.srv import BestPos
 import tf
 
-GROUP_NAME = "arm_torso"
+GROUP_NAME = "arm_left_torso"
 TARGET_OFFSET = 0.21
 APPROACH_OFFSET = 0.30
 AVOID_COLLISION_SPHERE_RAIDUS = 0.07
@@ -57,7 +57,7 @@ def closeGripper(tomato_radius):
 
     goal = FollowJointTrajectoryGoal()
     goal.trajectory.joint_names = [
-        "gripper_left_finger_joint", "gripper_right_finger_joint"]
+        "gripper_left_left_finger_joint", "gripper_left_right_finger_joint"]
 
     tomato_radius -= 0.01
 
@@ -79,7 +79,7 @@ def openGripper():
 
     goal = FollowJointTrajectoryGoal()
     goal.trajectory.joint_names = [
-        "gripper_left_finger_joint", "gripper_right_finger_joint"]
+        "gripper_left_left_finger_joint", "gripper_left_right_finger_joint"]
 
     point = JointTrajectoryPoint()
     point.positions = [OPEN_GRIPPER_POS, OPEN_GRIPPER_POS]
@@ -584,7 +584,7 @@ def TestTPIKService():
         controlCommandSrv = rospy.ServiceProxy('/right_robot/srv/control_command', ControlCommand)
         resp1 = controlCommandSrv(command_type = "move_joints_pos",
             move_type = "absolute",
-            joint_setpoint = [1,0,0,0,0,0,0,0],
+            joint_setpoint = [0.011, -0.52, 0.7, 0.52, 1.57, -1.57, 0, 0],
             joint_index = 0,
             target_position = [0.0, 0.0, 0.0],
             target_orientation = [0.0, 0.0, 0.0],

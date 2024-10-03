@@ -28,7 +28,7 @@ moveit_commander.roscpp_initialize(sys.argv)
 robot = moveit_commander.RobotCommander()
 names = robot.get_group_names()
 scene = moveit_commander.PlanningSceneInterface()
-move_group = moveit_commander.MoveGroupCommander("arm_torso")
+move_group = moveit_commander.MoveGroupCommander("arm_left_torso")
 
 v1 = Vector3()
 v1.x = 0.9
@@ -66,7 +66,7 @@ c1.orientation_constraints = [oc, oc]
 mgg = MoveGroupGoal()
 
 mgg.request.start_state = move_group.get_current_state()
-mgg.request.group_name = "arm_torso"
+mgg.request.group_name = "arm_left_torso"
 mgg.request.num_planning_attempts = 1
 mgg.request.max_velocity_scaling_factor = 1
 mgg.request.max_acceleration_scaling_factor = 1

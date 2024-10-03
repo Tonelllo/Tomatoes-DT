@@ -147,7 +147,7 @@ namespace topicnames {
 const std::string driver_cmd = "robot/driver/commands";
 const std::string desired_trajectory = "robot/desired_trajectory";
 
-const std::string pos2gazebo = "/arm_controller/follow_joint_trajectory/goal";
+const std::string pos2gazebo = "/arm_left_controller/follow_joint_trajectory/goal";
 
 const std::string state_data = "/joint_states";
 const std::string ctrl_data = "robot/ctrl/ctrl_data";
