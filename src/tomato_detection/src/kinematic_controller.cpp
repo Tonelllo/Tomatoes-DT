@@ -597,39 +597,68 @@ void KinematicController::PublishTrajectory() {
         armJointNames.end()
     );
     jointTrajectoryMsg.joint_names = armJointNames;
-
-    trajectory_msgs::JointTrajectoryPoint jointTrajectoryPoint;
-    jointTrajectoryPoint.positions.resize(armJointNames.size(),0.0);
-    jointTrajectoryPoint.velocities.resize(armJointNames.size(),0.0);
-    jointTrajectoryPoint.effort.resize(armJointNames.size(),0.0);
-
-    std::cerr << "[Publish,Trajectory] ytpik = " << yTpik_.transpose() << std::endl;
     
     targetJointPos_ = yTpik_ * dt_ + armModel_->JointsPosition();
-    std::cerr << "[Publish,Trajectory] targetJointPos_ = " << targetJointPos_.transpose() << std::endl;
-    for (auto i = 0; i < armJointNames.size(); i++) {
-        std::cerr << "[Publish,Trajectory] armJointNames = " << armJointNames[i] << std::endl;
-        jointTrajectoryPoint.positions[i] = targetJointPos_[i];
+    
+    if (posOccupated_ >= historyLen_) {
+        trajectoryPoints_[trajectoryIdxToUse_] = targetJointPos_;
+        posOccupated_ = historyLen_ + 1;
+    }
+    else {
+        trajectoryPoints_.push_back(targetJointPos_);
+        posOccupated_++;
+    }
+    trajectoryIdxToUse_ = (trajectoryIdxToUse_ + 1) % historyLen_;
+    if (posOccupated_ > historyLen_) {
+        trajectoryIdxStart_ = (trajectoryIdxStart_ + 1) % historyLen_;
+    }
+    else {
+        trajectoryIdxStart_ = 0;
     }
 
-    jointTrajectoryPoint.velocities.resize(armJointNames.size());
-    std::fill(jointTrajectoryPoint.velocities.begin(), jointTrajectoryPoint.velocities.end(), 0);
-    jointTrajectoryPoint.accelerations.resize(armJointNames.size());
-    std::fill(jointTrajectoryPoint.accelerations.begin(), jointTrajectoryPoint.accelerations.end(), 0);
+    std::cerr << "[Publish,Trajectory] ytpik = " << yTpik_.transpose() << std::endl;
+    std::cerr << "[Publish,Trajectory] targetJointPos_ = " << targetJointPos_.transpose() << std::endl;
+    std::cerr << "[Publish,Trajectory] posOccupated_ = " << posOccupated_ << std::endl;
 
-    jointTrajectoryPoint.time_from_start = ros::Duration(dt_);
-    jointTrajectoryMsg.points.push_back(jointTrajectoryPoint);
+    for (int j = 0; j < std::min(historyLen_,posOccupated_); ++j) {
+        int q = (trajectoryIdxStart_ + j) % historyLen_;
+        trajectory_msgs::JointTrajectoryPoint jointTrajectoryPoint;
+        jointTrajectoryPoint.positions.resize(armJointNames.size(),0.0);
+        jointTrajectoryPoint.velocities.resize(armJointNames.size(),0.0);
+        jointTrajectoryPoint.effort.resize(armJointNames.size(),0.0);
+        for (auto i = 0; i < armJointNames.size(); i++) {
+            jointTrajectoryPoint.positions[i] = trajectoryPoints_[q][i];
+        }
+
+        jointTrajectoryPoint.velocities.resize(armJointNames.size()); // TODO remove?
+        std::fill(jointTrajectoryPoint.velocities.begin(), jointTrajectoryPoint.velocities.end(), 0);
+        jointTrajectoryPoint.accelerations.resize(armJointNames.size());
+        std::fill(jointTrajectoryPoint.accelerations.begin(), jointTrajectoryPoint.accelerations.end(), 0);
+
+        jointTrajectoryPoint.time_from_start = ros::Duration(dt_);
+
+        jointTrajectoryMsg.points.push_back(jointTrajectoryPoint);
+    }
 
     control_msgs::FollowJointTrajectoryActionGoal msg;
     msg.goal.trajectory = jointTrajectoryMsg;
-    goal2GazeboPub_.publish(msg);
+    std::cerr << std::endl << "POINTS --> ";
+    for (int ii = 0; ii < jointTrajectoryMsg.points.size(); ii++) {
+        auto pt = jointTrajectoryMsg.points[ii].positions;
+        for (auto jj = 0; jj < pt.size(); jj++) {
+            std::cerr << pt[jj] << " " << std::endl;
+        }
+        std::cerr << ",";
+    }
+    std::cerr << std::endl;
+    //goal2GazeboPub_.publish(msg);
 
     std_msgs::Float64MultiArray velMsg;
     velMsg.data.clear();
     for (auto i = 0; i < jointNames_.size(); i++) {
         velMsg.data.push_back(yTpik_[i]);
     }
-    velPub_.publish(velMsg);
+    //velPub_.publish(velMsg);
 
 }
 

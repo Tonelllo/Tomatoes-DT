@@ -137,6 +137,12 @@ class KinematicController {
     void PublishToTF(const Eigen::TransformationMatrix &transf,
                      const std::string &frame_from, const std::string &frame_to);
 
+    std::vector<Eigen::VectorXd> trajectoryPoints_;
+    size_t trajectoryIdxToUse_ = 0;
+    size_t historyLen_ = 10;
+    size_t posOccupated_ = 0;
+    size_t trajectoryIdxStart_ = 0;
+
     ros::Publisher jointTrajectoryPub_;
 
     Eigen::VectorXd targetJointPos_;
