@@ -360,9 +360,17 @@ def getNewValidTomato(lt):
     return lt[index]
 
 
-def planNextApproach(goal_pose, radius):
-    poses = generate_grasp_poses(goal_pose, APPROACH_OFFSET)
-    gposes = generate_grasp_poses(goal_pose, TARGET_OFFSET)
+def planNextApproach(goal_pose, radius, first_iteration=False):
+    pre_poses = generate_grasp_poses(goal_pose, APPROACH_OFFSET)
+    pre_gposes = generate_grasp_poses(goal_pose, TARGET_OFFSET)
+
+    f, s = np.array_split(pre_poses, 2)
+    f = np.flip(f)
+    poses = [val for pair in zip(f, s) for val in pair]
+
+    f, s = np.array_split(pre_gposes, 2)
+    f = np.flip(f)
+    gposes = [val for pair in zip(f, s) for val in pair]
 
     status_mutex.acquire()
     current_goal_idx = max(len(status_array) - 1, 0)
@@ -403,6 +411,8 @@ def planNextApproach(goal_pose, radius):
             plans.append((pos, gpos, pplan))
 
         current_goal_idx += 1
+        if first_iteration:
+            break
 
     if len(plans) == 0:
         return False
@@ -502,6 +512,7 @@ def pickTomato():
     next_tomato = None
     latest_planned_state = None
     approach_plan = None
+    first = True
     HOME_STATE = None
 
     rospy.sleep(1.0)
@@ -547,7 +558,8 @@ def pickTomato():
             planning_mutex.acquire()
             move_group.set_start_state(HOME_STATE)
             next_tomato = planNextApproach(
-                goal_pose, AVOID_COLLISION_SPHERE_RAIDUS)
+                goal_pose, AVOID_COLLISION_SPHERE_RAIDUS, first_iteration=first)
+            first = False
             if next_tomato is False:
                 planning_mutex.release()
                 continue
@@ -750,6 +762,9 @@ move_gripper = moveit_commander.MoveGroupCommander("gripper")
 move_group.set_planner_id("RRTkConfigDefault")
 # move_group.set_planner_id("RRTstarkConfigDefault")
 move_group.set_planning_time(PLANNING_TIMEOUT)
+move_group.set_max_velocity_scaling_factor(1.0)
+move_group.set_max_acceleration_scaling_factor(1.0)
+
 gripper_client = actionlib.SimpleActionClient(
     "/gripper_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
 gripper_client.wait_for_server()
