@@ -107,11 +107,11 @@ fsm::retval MoveJointsPos::Execute()
     std::cout << "[MoveJointsPos::Execute] Elapsed time is " << moveTimer_.Elapsed() << " but max is " << conf->cartesianMoveTimeout << std::endl;
     if (error.cwiseAbs().maxCoeff() < 0.01) { //conf->angularErrorThreshold) {
 
-        std::cout << "[KCL] Joint Position Reached." << std::endl;
+        std::cout << tc::greenL << "[KCL] Joint Position Reached." << tc::none << std::endl;
         fsm_->SetNextState(appleRobot::ID::states::idle);
         ok_ = true;
     } else if (moveTimer_.Elapsed() > conf->cartesianMoveTimeout) {
-        std::cout << "[KCL]: Joint Position Move Timeout Reached." << std::endl;
+        std::cout << tc::redL << "[KCL]: Joint Position Move Timeout Reached." << std::endl;
         fsm_->SetNextState(appleRobot::ID::states::idle);
         ok_ = false;
     }
