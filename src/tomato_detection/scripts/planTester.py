@@ -106,7 +106,8 @@ for i in range(0, 5):
 
     move_gripper.set_start_state(latest_planned_state)
     move_gripper.set_joint_value_target([0.002, 0.002])
-    next_plan = move_gripper.plan()
+    po = moveit_commander.PlanningOptions()
+    next_plan = move_gripper.plan(po)
     (s, t, tt, e) = next_plan
     future_plans.put(t)
     aux = t.joint_trajectory.points[-1]
