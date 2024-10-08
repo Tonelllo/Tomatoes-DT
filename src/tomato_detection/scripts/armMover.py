@@ -21,6 +21,7 @@ import numpy as np
 from tomato_detection.srv import BestPos
 from threading import Lock
 from tomato_detection.srv import LatestTomatoPositions
+from tomato_trajectory_splicer.srv import SpliceService
 from queue import Queue
 import threading
 
@@ -85,7 +86,7 @@ def closeGripper():
     point = JointTrajectoryPoint()
     point.positions = [tomato_radius, tomato_radius]
     point.effort = [EFFORT, EFFORT]
-    point.time_from_start = rospy.Duration(1.0)
+    point.time_from_start = rospy.Duration(1, 0)
     goal.trajectory.points.append(point)
 
     gripper_client.send_goal(goal)
@@ -101,7 +102,7 @@ def openGripper():
 
     point = JointTrajectoryPoint()
     point.positions = [OPEN_GRIPPER_POS, OPEN_GRIPPER_POS]
-    point.time_from_start = rospy.Duration(1.0)
+    point.time_from_start = rospy.Duration(1, 0)
     goal.trajectory.points.append(point)
 
     gripper_client.send_goal(goal)
@@ -321,7 +322,7 @@ def lookAtTomato(tomato_position):
     head_goal.pointing_axis.x = 0
     head_goal.pointing_axis.y = 0
     head_goal.pointing_axis.z = 1
-    head_goal.min_duration = rospy.Duration(0.5)
+    head_goal.min_duration = rospy.Duration(1.0)
     head_goal.max_velocity = 0.50
     head_goal.target = tomato_point
 
@@ -338,7 +339,7 @@ def resetHead():
     look_point = JointTrajectoryPoint()
     look_point.positions = [0.0, best_head_tilt]
     look_point.velocities = [0.0, 0.0]
-    look_point.time_from_start = rospy.Duration(0.5)
+    look_point.time_from_start = rospy.Duration(1.0)
     head_goal.trajectory.joint_names = ['head_1_joint', 'head_2_joint']
     head_goal.trajectory.points = [look_point]
     rospy.loginfo("Resetting head position")
@@ -451,6 +452,7 @@ tomato_poses_mutex = Lock()
 
 def recoverExecutionError():
     rospy.logerr("Recovering from execution error")
+    move_group.clear_pose_targets()
     resetHead()
     planning_mutex.acquire()
     move_group.set_start_state_to_current_state()
@@ -471,16 +473,16 @@ def worker():
             (next_traj, goal_pose) = data
             disableCollisionsAtTarget(goal_pose, AVOID_COLLISION_SPHERE_RAIDUS)
             lookAtTomato(goal_pose)
-        elif state_name == "pick":
+        elif state_name == "pick_home":
             (next_traj) = data
         elif state_name == "home":
-            removeSphere()
             next_traj = data
         elif state_name == "grab":
             resetHead()
             closeGripper()
             continue
         elif state_name == "release":
+            removeSphere()
             openGripper()
             tomato_poses_mutex.acquire()
             tomato_poses = getTomatoPoses()
@@ -492,7 +494,7 @@ def worker():
         success = move_group.execute(next_traj, wait=True)
         if not success:
             recoverExecutionError()
-            trash_state = None
+            trash_state = "xxx"
             while trash_state != "home":
                 (trash_state, data) = future_plans.get(block=True)
                 print("Removed state")
@@ -512,6 +514,7 @@ def pickTomato():
     next_tomato = None
     latest_planned_state = None
     approach_plan = None
+    back_plan = None
     first = True
     HOME_STATE = None
 
@@ -564,6 +567,7 @@ def pickTomato():
                 planning_mutex.release()
                 continue
             (success, traj, time, error, gpos, ppos, idx) = next_tomato
+
             approach_plan = ("approach", (traj, goal_pose))
             # lookAtTomato(goal_pose)
             at = getNewJointPos(
@@ -585,10 +589,12 @@ def pickTomato():
                 [l_pick_pose], 0.01, avoid_collisions=False)
             # TODO frac
             if frac >= CARTESIAN_FAILURE_THRESHOLD:
-                # (name, (approach_traj, gpos)) = approach_plan
-                # future_plans.put(("approach", (approach_traj, gpos)))
-                future_plans.put(approach_plan)
-                future_plans.put(("pick", (traj)))
+                (name, (approach_traj, gpos)) = approach_plan
+
+                spliced_traj = spliced_traj = getSplicedTraj(approach_traj, traj)
+                for index in range(len(spliced_traj.res.joint_trajectory.points)):
+                    spliced_traj.res.joint_trajectory.points[index].time_from_start += rospy.Duration(0, 500)
+                future_plans.put(("approach_pick", (spliced_traj.res, gpos)))
             else:
                 state = States.PLAN_APPROACH
                 planning_mutex.release()
@@ -618,7 +624,7 @@ def pickTomato():
             move_group.set_start_state(latest_planned_state)
             (traj, frac) = move_group.compute_cartesian_path(
                 [l_approach_pose], 0.01, avoid_collisions=False)
-            future_plans.put(("back", traj))
+            back_plan = (("back", traj))
             at = getNewJointPos(
                 ARM_TORSO, traj.joint_trajectory.points[-1].positions, HOME_STATE)
             latest_planned_state.joint_state.position = at
@@ -642,7 +648,11 @@ def pickTomato():
             move_group.set_planning_time(3.0)
             next_tomato = move_group.plan()
             (s, t, tt, e) = next_tomato
-            future_plans.put(("home", t))
+            (state, traj) = back_plan
+            spliced_traj = getSplicedTraj(traj, t)
+            for index in range(len(spliced_traj.res.joint_trajectory.points)):
+                spliced_traj.res.joint_trajectory.points[index].time_from_start += rospy.Duration(0, 500)
+            future_plans.put(("pick_home", spliced_traj.res))
             move_group.set_planning_time(PLANNING_TIMEOUT)
             at = getNewJointPos(
                 ARM_TORSO, t.joint_trajectory.points[-1].positions, HOME_STATE)
@@ -764,6 +774,11 @@ move_group.set_planner_id("RRTkConfigDefault")
 move_group.set_planning_time(PLANNING_TIMEOUT)
 move_group.set_max_velocity_scaling_factor(1.0)
 move_group.set_max_acceleration_scaling_factor(1.0)
+
+getSplicedTraj = rospy.ServiceProxy(
+    "/tomato_sync/getSplicedTraj", SpliceService)
+getSplicedTraj.wait_for_service()
+rospy.loginfo("Splicing is now available")
 
 gripper_client = actionlib.SimpleActionClient(
     "/gripper_controller/follow_joint_trajectory", FollowJointTrajectoryAction)

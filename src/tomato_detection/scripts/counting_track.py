@@ -58,7 +58,7 @@ def giveBestPosition(req):
 
     if req.activate:
         image_subscriber = rospy.Subscriber(
-            "xtion/rgb/image_raw", Image, callback)
+            "/tomato_sync/image_rgb", Image, callback)
         head_subscriber = rospy.Subscriber("/head_controller/state",
                                            JointTrajectoryControllerState, positionGetter)
         return False, 0

@@ -20,7 +20,7 @@
 
 ImageProvider::ImageProvider(ros::NodeHandle& nh, QObject* parent) : m_image_transport(nh), m_yolo_transport(nh)
 {
-  m_image_sub = m_image_transport.subscribe("xtion/rgb/image_raw", 1, &ImageProvider::frameCallback, this);
+  m_image_sub = m_image_transport.subscribe("/tomato_sync/image_rgb", 1, &ImageProvider::frameCallback, this);
   m_yolo_sub = m_image_transport.subscribe("tomato_detection/detection_result", 1, &ImageProvider::yoloCallback, this);
   m_nh = nh;
   QString modulePath = QString::fromStdString(ros::package::getPath("tomato_gui"));

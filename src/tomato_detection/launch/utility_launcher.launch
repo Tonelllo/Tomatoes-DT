@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <arg name="public_sim" default="true"/>
+    <node name="tomato_sync_pub" pkg="tomato_sync_pub" type="tomato_sync" output="screen"/>
+    <node name="tomato_splicer" pkg="tomato_trajectory_splicer" type="tomato_trajectory_splicer" output="screen"/>
+    <group if="$(arg public_sim)">
+        <node pkg="topic_tools" type="throttle" name="throttle_filtering_points" output="screen" args="messages /xtion/depth_registered/points 10 throttle_filtering_points/filtered_points"/>
+    </group>
+    <include file="$(find tomato_detection)/launch/vision_manager.launch"/>
+</launch>

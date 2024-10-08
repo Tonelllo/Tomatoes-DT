@@ -72,7 +72,7 @@ public:
     mImageDepthPub_ = mNh_.advertise<sensor_msgs::Image>("/tomato_sync/image_depth", 5);
     mImageRgbPub_ = mNh_.advertise<sensor_msgs::Image>("/tomato_sync/image_rgb", 5);
     mImageParamsPub_ = mNh_.advertise<sensor_msgs::CameraInfo>("/tomato_sync/image_params", 5);
-    mPointSub_ = mNh_.subscribe("/throttle_filtering_points/filtered_points", 3, &SincPublisher::pc2Callback, this);
+    mPointSub_ = mNh_.subscribe("/xtion/depth_registered/points", 3, &SincPublisher::pc2Callback, this);
     mCameraInfo_ = mNh_.subscribe("/xtion/depth_registered/camera_info", 1, &SincPublisher::getCamerainfo, this);
   }
 };
@@ -83,5 +83,6 @@ int main(int argc, char** argv)
   ros::NodeHandle nh;
 
   SincPublisher ou(nh);
+  std::cout << "############### SYNC STARTED ###############\n";
   ros::spin();
 }

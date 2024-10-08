@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
     roscpp
     pcl_conversions
     cv_bridge
+    moveit_core
 )
 
 

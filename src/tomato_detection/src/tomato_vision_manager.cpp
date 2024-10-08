@@ -163,7 +163,7 @@ tf2::Transform VisionManager::stampedTransform2tf2Transform(geometry_msgs::Trans
   return tf2::Transform(q, t);
 }
 
-// TODO check for ::constPtr
+// TODO Get correct transform
 void VisionManager::computeDistances(geometry_msgs::PoseArray msg)
 {
   /**

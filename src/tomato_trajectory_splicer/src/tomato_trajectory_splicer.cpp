@@ -29,15 +29,16 @@ public:
     moveit_msgs::RobotTrajectory rt2 = req.traj2;
     moveit_msgs::RobotTrajectory spliced(rt1);
     auto last = rt1.joint_trajectory.points.back().time_from_start;
-    /*rt1.joint_trajectory.points.pop_back();*/
+    spliced.joint_trajectory.points.pop_back();
 
-    bool first = true;
-    for (const auto &elem : rt2.joint_trajectory.points)
+    /*bool first = true;*/
+    for (const auto& elem : rt2.joint_trajectory.points)
     {
-      if(first){
-          first = false;
-          continue;
-      }
+      /*if (first)*/
+      /*{*/
+      /*  first = false;*/
+      /*  continue;*/
+      /*}*/
       trajectory_msgs::JointTrajectoryPoint new_point = elem;
       new_point.time_from_start += ros::Duration(last);
       spliced.joint_trajectory.points.push_back(new_point);
@@ -54,6 +55,10 @@ public:
     }
     moveit_msgs::RobotTrajectory out;
     robotTraj.getRobotTrajectoryMsg(out);
+    for (auto& point : out.joint_trajectory.points)
+    {
+      point.time_from_start += ros::Duration(0, 100);
+    }
     res.res = out;
     return true;
   }
@@ -72,5 +77,8 @@ int main(int argc, char** argv)
   ros::NodeHandle nh;
 
   TrajectorySplicer ou(nh);
+
+  std::cout << "############### SPLICER STARTED ###############\n";
+
   ros::spin();
 }

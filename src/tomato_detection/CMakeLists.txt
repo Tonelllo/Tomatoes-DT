@@ -22,6 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
     tf
     pcl_ros
     cv_bridge
+    moveit_core
 )
 
 
