@@ -46,12 +46,11 @@ KinematicController::KinematicController(std::shared_ptr<ros::NodeHandle> nodeHa
     ctrlDataPub_ = nh_->advertise<tomato_detection::ControlData>(prefix + appleRobot::topicnames::ctrl_data, 10);
     tpikActionPub_ = nh_->advertise<tomato_detection::TPIKAction>(prefix + appleRobot::topicnames::tpik_action, 10);
 
-    goal2GazeboPub_ = nh_->advertise<control_msgs::FollowJointTrajectoryActionGoal>(appleRobot::topicnames::pos2gazebo, 10);
+    if (simulatedDriver) goal2GazeboPub_ = nh_->advertise<control_msgs::FollowJointTrajectoryActionGoal>(appleRobot::topicnames::pos2gazebo_sim, 10);
+    else goal2GazeboPub_ = nh_->advertise<control_msgs::FollowJointTrajectoryActionGoal>(appleRobot::topicnames::pos2gazebo, 10);
 
     driverCommandPub_ = nh_->advertise<tomato_detection::DriverCommand>(prefix + appleRobot::topicnames::driver_cmd, 10);
     driverCommandPub_ = nh_->advertise<tomato_detection::DriverCommand>(prefix + appleRobot::topicnames::driver_cmd, 10);
-
-    //pos2gazebo
     
     if (id_.find("left") != std::string::npos) {
         velPub_ = nh_->advertise<std_msgs::Float64MultiArray>("/left/joint_group_vel_controller/command", 10);
@@ -76,15 +75,29 @@ KinematicController::KinematicController(std::shared_ptr<ros::NodeHandle> nodeHa
 
     tSTART_ = tLastFeedback_ = tLastControl_ = ros::Time::now();
 
-    jointNameToIndex_["arm_left_1_joint"] = 0;
-    jointNameToIndex_["arm_left_2_joint"] = 1;
-    jointNameToIndex_["arm_left_3_joint"] = 2;
-    jointNameToIndex_["arm_left_4_joint"] = 3;
-    jointNameToIndex_["arm_left_5_joint"] = 4;
-    jointNameToIndex_["arm_left_6_joint"] = 5;
-    jointNameToIndex_["arm_left_7_joint"] = 6;
-    jointNameToIndex_["torso_lift_joint"] = 7;
-    jointNames_.resize(jointNameToIndex_.size());
+    if (!simulatedDriver) {
+        jointNameToIndex_["arm_left_1_joint"] = 0;
+        jointNameToIndex_["arm_left_2_joint"] = 1;
+        jointNameToIndex_["arm_left_3_joint"] = 2;
+        jointNameToIndex_["arm_left_4_joint"] = 3;
+        jointNameToIndex_["arm_left_5_joint"] = 4;
+        jointNameToIndex_["arm_left_6_joint"] = 5;
+        jointNameToIndex_["arm_left_7_joint"] = 6;
+        jointNameToIndex_["torso_lift_joint"] = 7;
+        jointNames_.resize(jointNameToIndex_.size());
+    }
+    else {
+        jointNameToIndex_["arm_1_joint"] = 0;
+        jointNameToIndex_["arm_2_joint"] = 1;
+        jointNameToIndex_["arm_3_joint"] = 2;
+        jointNameToIndex_["arm_4_joint"] = 3;
+        jointNameToIndex_["arm_5_joint"] = 4;
+        jointNameToIndex_["arm_6_joint"] = 5;
+        jointNameToIndex_["arm_7_joint"] = 6;
+        jointNameToIndex_["torso_lift_joint"] = 7;
+        jointNames_.resize(jointNameToIndex_.size());
+    }
+
 
     size_t startIdx = 0;
     for (auto jointName : jointNameToIndex_) {
@@ -620,6 +633,8 @@ void KinematicController::PublishTrajectory() {
     std::cerr << "[Publish,Trajectory] targetJointPos_ = " << targetJointPos_.transpose() << std::endl;
     std::cerr << "[Publish,Trajectory] posOccupated_ = " << posOccupated_ << std::endl;
 
+    std::cerr << "[Publish,Trajectory] q seq = ";
+
     for (int j = 0; j < std::min(historyLen_,posOccupated_); ++j) {
         int q = (trajectoryIdxStart_ + j) % historyLen_;
         trajectory_msgs::JointTrajectoryPoint jointTrajectoryPoint;
@@ -629,6 +644,7 @@ void KinematicController::PublishTrajectory() {
         for (auto i = 0; i < armJointNames.size(); i++) {
             jointTrajectoryPoint.positions[i] = trajectoryPoints_[q][i];
         }
+        std::cerr << q << " ";
 
         jointTrajectoryPoint.velocities.resize(armJointNames.size()); // TODO remove?
         std::fill(jointTrajectoryPoint.velocities.begin(), jointTrajectoryPoint.velocities.end(), 0);
@@ -646,12 +662,12 @@ void KinematicController::PublishTrajectory() {
     for (int ii = 0; ii < jointTrajectoryMsg.points.size(); ii++) {
         auto pt = jointTrajectoryMsg.points[ii].positions;
         for (auto jj = 0; jj < pt.size(); jj++) {
-            std::cerr << pt[jj] << " " << std::endl;
+            std::cerr << pt[jj] << " ";
         }
         std::cerr << ",";
     }
     std::cerr << std::endl;
-    //goal2GazeboPub_.publish(msg);
+    goal2GazeboPub_.publish(msg);
 
     std_msgs::Float64MultiArray velMsg;
     velMsg.data.clear();
