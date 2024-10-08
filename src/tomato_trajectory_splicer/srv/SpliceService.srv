@@ -1,0 +1,4 @@
+moveit_msgs/RobotTrajectory traj1
+moveit_msgs/RobotTrajectory traj2
+---
+moveit_msgs/RobotTrajectory res
