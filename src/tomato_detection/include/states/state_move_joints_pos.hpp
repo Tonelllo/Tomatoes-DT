@@ -26,6 +26,8 @@ public:
     bool ok_;
 
     bool enableObstacleAvoidance;
+    
+    size_t cnt;
 
 };
 }

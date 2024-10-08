@@ -67,13 +67,14 @@ bool MoveJointsPos::SetSingleJointGoal(std::vector<double> &joint_pos, int i, st
 
 fsm::retval MoveJointsPos::OnEntry()
 {
+    cnt = 0;
 
     jointsPositionTask_ = std::dynamic_pointer_cast<ikcl::JointsPosition>(tasksMap.find(appleRobot::ID::Tasks::JointsPosition)->second.task);
     ok_ = true;
 
     if (!enableObstacleAvoidance) {
-        auto eaf = tasksMap[appleRobot::ID::Tasks::ObstacleAvoidance].task->ExternalActivationFunction();
-        tasksMap[appleRobot::ID::Tasks::ObstacleAvoidance].task->ExternalActivationFunction() = eaf.setZero();
+        //auto eaf = tasksMap[appleRobot::ID::Tasks::ObstacleAvoidance].task->ExternalActivationFunction();
+       // tasksMap[appleRobot::ID::Tasks::ObstacleAvoidance].task->ExternalActivationFunction() = eaf.setZero();
         // std::cerr << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!![MoveJointsPos::OnEntry] tmp eaf after zeroing = " << tasksMap[appleRobot::ID::Tasks::ObstacleAvoidance].task->ExternalActivationFunction() << std::endl;
     }
     if (actionManager->SetAction(appleRobot::ID::Actions::MoveJointsPosition, true)) {
@@ -86,8 +87,8 @@ fsm::retval MoveJointsPos::OnEntry()
 fsm::retval MoveJointsPos::OnExit()
 {
     moveTimer_.Stop();
-    auto eaf = tasksMap[appleRobot::ID::Tasks::ObstacleAvoidance].task->ExternalActivationFunction();
-    tasksMap[appleRobot::ID::Tasks::ObstacleAvoidance].task->ExternalActivationFunction() = eaf.setIdentity();
+    //auto eaf = tasksMap[appleRobot::ID::Tasks::ObstacleAvoidance].task->ExternalActivationFunction();
+    //tasksMap[appleRobot::ID::Tasks::ObstacleAvoidance].task->ExternalActivationFunction() = eaf.setIdentity();
     //std::cerr << "[MoveJointsPos::OnEntry] tmp eaf after oneing = " << tasksMap[appleRobot::ID::Tasks::ObstacleAvoidance].task->ExternalActivationFunction() << std::endl;
     return fsm::ok;
 }
@@ -95,27 +96,41 @@ fsm::retval MoveJointsPos::OnExit()
 
 fsm::retval MoveJointsPos::Execute()
 {
+    cnt++;
+    auto enableDbgPrnt = cnt % 40 == 0;
+
     jointsPositionTask_->Reference() = robotInfo->jointsGoal;
 
     Eigen::VectorXd error = robotInfo->jointsGoal - armModel->JointsPosition();
-    
-    std::cerr << "[MoveJointsPos::Execute] Our joint pos = " << armModel->JointsPosition().transpose() << std::endl;
-    
     jointsPositionTask_->Update();
-    std::cerr << "[MoveJointsPos::Execute] Joint pos error = " << error.transpose() << std::endl;
-    std::cerr << "[MoveJointsPos::Execute] Joint goal = " << robotInfo->jointsGoal.transpose() << std::endl;
-    std::cout << "[MoveJointsPos::Execute] Elapsed time is " << moveTimer_.Elapsed() << " but max is " << conf->cartesianMoveTimeout << std::endl;
-    if (error.cwiseAbs().maxCoeff() < 0.01) { //conf->angularErrorThreshold) {
+
+    if (enableDbgPrnt) {
+        std::cerr << tc::yellow << "[MoveJointsPos::Execute] TASK INFO Start..." << tc::none << std::endl;
+        std::cerr << tc::magL << "[MoveJointsPos::Execute] Current joint pos = " << armModel->JointsPosition().transpose() << tc::none << std::endl;
+        std::cerr << tc::magL << "[MoveJointsPos::Execute] Joint goal = " << robotInfo->jointsGoal.transpose() << tc::none << std::endl;
+        std::cerr << tc::yellow << "[MoveJointsPos::Execute] Joint pos error = " << error.transpose();
+        std::cerr << " (abs val is " << error.cwiseAbs().maxCoeff() << ")" << tc::none << std::endl;
+        auto clrTime = tc::bluL;
+        if (conf->cartesianMoveTimeout - moveTimer_.Elapsed() < 5) clrTime = tc::redL;
+        else if (conf->cartesianMoveTimeout - moveTimer_.Elapsed() < 10) clrTime = tc::yellow;
+        std::cout << clrTime << "[MoveJointsPos::Execute] Elapsed time is " << moveTimer_.Elapsed() << " out of " <<
+            conf->cartesianMoveTimeout << tc::none << std::endl;
+        auto iaf = tasksMap[appleRobot::ID::Tasks::JointsLimit].task->InternalActivationFunction().diagonal().transpose();
+        std::cerr << "iaf = " << iaf << std::endl;
+        auto eaf = tasksMap[appleRobot::ID::Tasks::JointsLimit].task->ExternalActivationFunction().diagonal().transpose();
+        std::cerr << "eaf = " << eaf << std::endl;
+    }
+    if (error.cwiseAbs().maxCoeff() < conf->angularErrorThreshold) {
 
         std::cout << tc::greenL << "[KCL] Joint Position Reached." << tc::none << std::endl;
         fsm_->SetNextState(appleRobot::ID::states::idle);
         ok_ = true;
     } else if (moveTimer_.Elapsed() > conf->cartesianMoveTimeout) {
-        std::cout << tc::redL << "[KCL]: Joint Position Move Timeout Reached." << std::endl;
+        std::cout << tc::redL << "[KCL]: Joint Position Move Timeout Reached." << tc::none << std::endl;
         fsm_->SetNextState(appleRobot::ID::states::idle);
         ok_ = false;
     }
-     //std::cerr << "[MoveJointsPos::Execute()] Err is " <<  error.cwiseAbs().maxCoeff() << " > " << conf->angularErrorThreshold << std::endl;
+    if (enableDbgPrnt) std::cerr << tc::yellow << "[MoveJointsPos::Execute] TASK INFO Finish!" << tc::none << std::endl;
 
     return fsm::ok;
 }

@@ -64,7 +64,8 @@ class KinematicController {
     ros::Publisher tpikActionPub_;
 
     ros::Publisher driverCommandPub_;
-    ros::Publisher goal2GazeboPub_;
+    ros::Publisher armGoalPub_;
+    ros::Publisher torsoGoalPub_;
 
     ros::ServiceServer srvCommand_;
 
@@ -113,6 +114,11 @@ class KinematicController {
     bool receivingFeedback_;
     double feedbackTimeout_;
     std::string currentState_;
+
+    std::vector<Eigen::VectorXd> trajectoryPoints_;
+    size_t trajectoryIdxToUse_ = 0;
+    size_t trajectoryHistoryLen_ = 1; // TODO parametrize
+    size_t trajectoryIdxStart_ = 0;
 
     double dt_;
     double t_;
