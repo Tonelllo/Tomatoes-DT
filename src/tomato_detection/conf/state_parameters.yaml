@@ -89,7 +89,3 @@ robotPositions:
     q4: 1.57
     q5: 1.57
     q6: 0.0
-  
-  enableCartTest: 0
-  enableJointTest: 1
-  enableFSM: 0

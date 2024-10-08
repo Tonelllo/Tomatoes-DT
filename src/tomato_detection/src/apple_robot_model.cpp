@@ -27,6 +27,7 @@ AppleRobotModel::AppleRobotModel(std::shared_ptr<ros::NodeHandle> nh, const std:
 
     for (auto jointIdx = 0; jointIdx < numJoints; jointIdx++) {
         nh_->getParam(jointParametersString + "/joint" + std::to_string(jointIdx) + "/min_angle", minJoint.at(jointIdx));
+        std::cerr << "minJoint.at(jointIdx) = " << minJoint.at(jointIdx) << " with jointIdx = " << jointIdx << std::endl;
         nh_->getParam(jointParametersString + "/joint" + std::to_string(jointIdx) + "/max_angle", maxJoint.at(jointIdx));
         nh_->getParam(jointParametersString + "/joint" + std::to_string(jointIdx) + "/distance_vector/x", tx.at(jointIdx));
         nh_->getParam(jointParametersString + "/joint" + std::to_string(jointIdx) + "/distance_vector/y", ty.at(jointIdx));

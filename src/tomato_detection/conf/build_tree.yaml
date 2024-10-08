@@ -2,7 +2,7 @@
 numJoints: 8
 
 # JOINT PARAMETERS
-joint_parameters_right:
+joint_parameters_left:
   joint0: # shoulder
     roll: 0.0
     pitch: 0.0
