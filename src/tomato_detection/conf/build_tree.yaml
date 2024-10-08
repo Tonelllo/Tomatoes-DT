@@ -3,93 +3,93 @@ numJoints: 8
 
 # JOINT PARAMETERS
 joint_parameters_left:
-  joint0: # shoulder
+  joint0: # torso # get by: $rosrun tf tf_echo /base_footprint /torso_fixed_link
     roll: 0.0
     pitch: 0.0
     yaw: 0.0
     max_angle: 330.0
     min_angle: -330.0
     distance_vector:
-      x: 0.0
+      x: -0.062
       y: 0.0
-      z: 0.089159
+      z: 0.291
 
-  joint1: # upper_arm
-    roll: 1.570796327
+  joint1: # arm joint 1 # get by: $rosrun tf tf_echo /torso_fixed_link /arm_1_link
+    roll: 0.0
+    pitch: 0.0
+    yaw: -1.571
+    max_angle: 330.0
+    min_angle: -330.0
+    distance_vector:
+      x: 0.155
+      y: 0.014
+      z: 0.446
+
+  joint2: # arm joint 2 # get by: $rosrun tf tf_echo /arm_1_link /arm_2_link
+    roll: 1.571
     pitch: 0.0
     yaw: 0.0
     max_angle: 330.0
     min_angle: -330.0
     distance_vector:
-      x: 0.0
-      y: 0.0
-      z: 0.0
+      x: 0.125
+      y: 0.019
+      z: -0.031
 
-  joint2: # forearm
-    roll: 0.0
+  joint3: # arm joint 3 # get by: $rosrun tf tf_echo /arm_2_link /arm_3_link
+    roll: -1.571
     pitch: 0.0
-    yaw: 0.0
-    max_angle: 170.0
-    min_angle: -170.0
-    distance_vector:
-      x: 0.425
-      y: 0.0
-      z: 0.0
-
-  joint3: # writs_1
-    roll: 0.0
-    pitch: 0.0
-    yaw: 0.0
+    yaw: 1.571
     max_angle: 330.0
     min_angle: -330.0
     distance_vector:
-      x: 0.39225
-      y: 0.0
-      z: 0.0
+      x: 0.089
+      y: 0.000
+      z: -0.002
 
-  joint4: # wrist_2
-    roll: 1.570796327
-    pitch: 0.0
-    yaw: 0.0
+  joint4: # arm joint 4 # get by: $rosrun tf tf_echo /arm_3_link /arm_4_link
+    roll: 1.571
+    pitch: -1.569
+    yaw: 3.142
     max_angle: 330.0
     min_angle: -330.0  
     distance_vector:
-      x: 0.0
-      y: 0.0
-      z: 0.10915
+      x: -0.020
+      y: -0.027
+      z: -0.222
 
-  joint5: # wrist_3
-    roll: 1.570796326589793
-    pitch: 3.141592653589793
-    yaw: 3.141592653589793
+  joint5: # arm joint 5 # get by: $rosrun tf tf_echo /arm_4_link /arm_5_link
+    roll: 1.571
+    pitch: -1.571
+    yaw: -1.571
+    max_angle: 330.0
+    min_angle: -330.0
+    distance_vector:
+      x: -0.162
+      y: 0.020
+      z: 0.027
+
+  joint6: # arm joint 6 # get by: $rosrun tf tf_echo /arm_5_link /arm_6_link
+    roll: -1.571
+    pitch: -1.568
+    yaw: 0.0
     max_angle: 330.0
     min_angle: -330.0
     distance_vector:
       x: 0.0
       y: 0.0
-      z: 0.09465
+      z: 0.150
 
-  joint6: # wrist_3
-    roll: 1.570796326589793
-    pitch: 3.141592653589793
-    yaw: 3.141592653589793
+  joint7: # arm joint 6 # get by: $rosrun tf tf_echo /arm_6_link /arm_7_link
+    roll: 1.571
+    pitch: 0.0
+    yaw: 1.571
     max_angle: 330.0
     min_angle: -330.0
     distance_vector:
       x: 0.0
       y: 0.0
-      z: 0.09465
-
-  joint7: # wrist_3
-    roll: 1.570796326589793
-    pitch: 3.141592653589793
-    yaw: 3.141592653589793
-    max_angle: 330.0
-    min_angle: -330.0
-    distance_vector:
-      x: 0.0
-      y: 0.0
-      z: 0.09465
+      z: 0.0
 
 robot_separation_plane: # y = -dRob/2.0 where dRob is the y distance between robots
   a: 0.0

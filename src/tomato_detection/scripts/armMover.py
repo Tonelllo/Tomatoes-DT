@@ -577,17 +577,58 @@ def poseCallBack(positions):
                            PoseArray, poseCallBack)
 
 # tpik state from /left_robot/ctrl/ctrl_data
-def TestTPIKService():
+def TestTPIKServiceCart():
+    rospy.wait_for_service('/left_robot/srv/control_command')
+    from tomato_detection.srv import ControlCommand
+    try:
+        controlCommandSrv = rospy.ServiceProxy('/left_robot/srv/control_command', ControlCommand)
+        resp1 = controlCommandSrv(command_type = "move_cartesian",
+            move_type = "absolute",
+            joint_setpoint = [0,0,0,0,0,0,0,0],
+            joint_index = 0,
+            target_position = [0.842, 0.032, 0.707],
+            target_orientation = [1.569, 0.000, 1.568],
+            frame_type = 0,
+            id = 0,
+            gripper_setpoint = 0.0,
+            grasp_current = 0.0,
+            enableObstacleAvoidance = False)
+        print(resp1)
+    except rospy.ServiceException as e:
+        print("Service call failed: %s"%e)
+
+# tpik state from /left_robot/ctrl/ctrl_data
+def TestEachJoint(i: int):
+    rospy.wait_for_service('/left_robot/srv/control_command')
+    jointTarget = [0] * 8
+    jointTarget[i] = 1.5
+    from tomato_detection.srv import ControlCommand
+    try:
+        controlCommandSrv = rospy.ServiceProxy('/left_robot/srv/control_command', ControlCommand)
+        resp1 = controlCommandSrv(command_type = "move_joints_pos",
+            move_type = "absolute",
+            joint_setpoint = jointTarget,
+            joint_index = 0,
+            target_position = [0.0, 0.0, 0.0],
+            target_orientation = [0.0, 0.0, 0.0],
+            frame_type = 0,
+            id = 0,
+            gripper_setpoint = 0.0,
+            grasp_current = 0.0,
+            enableObstacleAvoidance = False)
+        print(resp1)
+    except rospy.ServiceException as e:
+        print("Service call failed: %s"%e)
+
+# tpik state from /left_robot/ctrl/ctrl_data
+def TestTPIKServiceJoint():
     rospy.wait_for_service('/left_robot/srv/control_command')
     from tomato_detection.srv import ControlCommand
     try:
         controlCommandSrv = rospy.ServiceProxy('/left_robot/srv/control_command', ControlCommand)
         resp1 = controlCommandSrv(command_type = "move_joints_pos",
             move_type = "absolute",
-            #joint_setpoint = [0,-0.7,-0.1,-0.1,0,0,0,0],
-            joint_setpoint = [0,0,0,0,0,0,0,0.0],
-            #joint_setpoint = [0.011, -0.52, 0.7, 0.52, 1.57, -1.57, 0, 0],
-            #joint_setpoint = [0.1,0,0,0,0,0,0,0,0],
+            joint_setpoint = [0,0,0,0,0,0,0,0],
             joint_index = 0,
             target_position = [0.0, 0.0, 0.0],
             target_orientation = [0.0, 0.0, 0.0],
@@ -601,7 +642,9 @@ def TestTPIKService():
         print("Service call failed: %s"%e)
 
 if controllerType == ControllerType.TPIK:
-    TestTPIKService()
+    #TestTPIKServiceCart()
+    TestTPIKServiceJoint()
+    #TestEachJoint(7)
 
 elif controllerType == ControllerType.MOVEIT:
     # radiants

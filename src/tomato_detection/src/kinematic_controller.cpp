@@ -180,12 +180,9 @@ bool KinematicController::Initialization()
     armModel_->JointsVelocity(qdotcontrol_single);
 
     Eigen::TransformationMatrix base_T_arm; // identity matrix for now
-    base_T_arm.RotationMatrix(rml::EulerRPY(0.0,0.0,M_PI_2).ToRotationMatrix());
+    base_T_arm.RotationMatrix(rml::EulerRPY(0.0,0.0,0.0).ToRotationMatrix());
     if (id_.find("left") != std::string::npos) {
-        base_T_arm.TranslationVector(Eigen::Vector3d(0.28,0.4,0.0));
-    }
-    else {
-        base_T_arm.TranslationVector(Eigen::Vector3d(0.28,-0.4,0.0));
+        base_T_arm.TranslationVector(Eigen::Vector3d(0,0,0));
     }
 
     std::cerr << "base_T_arm = " << base_T_arm << std::endl;
@@ -203,11 +200,6 @@ bool KinematicController::Initialization()
     Eigen::TransformationMatrix jointN_T_toolF;
     jointN_T_toolF.TranslationVector(Eigen::Vector3d(0.0, 0.0, 0));
     Eigen::RotationMatrix toolRot = (rml::EulerRPY(0.0, 0.0, 0.0)).ToRotationMatrix();
-   //Eigen::RotationMatrix toolRot;
-    //toolRot << 0,  0,  1,
-    //    0, -1,  0,
-    //    1,  0,  0;
-
     jointN_T_toolF.RotationMatrix(toolRot);
 
     robotModel_->AttachRigidBodyFrame(appleRobot::ID::RobotModel::ToolFrame, jointNID, jointN_T_toolF);

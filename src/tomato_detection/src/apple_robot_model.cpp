@@ -10,6 +10,9 @@ AppleRobotModel::AppleRobotModel(std::shared_ptr<ros::NodeHandle> nh, const std:
     int numJoints = 8; // arm 7 DOFs + torso 1 DOF
     std::vector<double> minJoint(numJoints, 0.0);
     std::vector<double> maxJoint(numJoints, 0.0);
+    std::vector<double> roll(numJoints, 0.0);
+    std::vector<double> pitch(numJoints, 0.0);
+    std::vector<double> yaw(numJoints, 0.0);
     std::vector<double> tx(numJoints, 0.0);
     std::vector<double> ty(numJoints, 0.0);
     std::vector<double> tz(numJoints, 0.0);
@@ -32,6 +35,9 @@ AppleRobotModel::AppleRobotModel(std::shared_ptr<ros::NodeHandle> nh, const std:
         nh_->getParam(jointParametersString + "/joint" + std::to_string(jointIdx) + "/distance_vector/x", tx.at(jointIdx));
         nh_->getParam(jointParametersString + "/joint" + std::to_string(jointIdx) + "/distance_vector/y", ty.at(jointIdx));
         nh_->getParam(jointParametersString + "/joint" + std::to_string(jointIdx) + "/distance_vector/z", tz.at(jointIdx));
+        nh_->getParam(jointParametersString + "/joint" + std::to_string(jointIdx) + "/roll", roll.at(jointIdx));
+        nh_->getParam(jointParametersString + "/joint" + std::to_string(jointIdx) + "/pitch", pitch.at(jointIdx));
+        nh_->getParam(jointParametersString + "/joint" + std::to_string(jointIdx) + "/yaw", yaw.at(jointIdx));
     }
     std::vector<Eigen::TransformationMatrix> biTri(numJoints);
     
@@ -42,59 +48,27 @@ AppleRobotModel::AppleRobotModel(std::shared_ptr<ros::NodeHandle> nh, const std:
     jMin = jMin * M_PI / 180.0;
     jMax = jMax * M_PI / 180.0;
 
-    biTri.at(0)(0,0) = 1; biTri.at(0)(0,1) = 0;  biTri.at(0)(0,2) = 0; biTri.at(0)(0,3) = tx.at(0);
-    biTri.at(0)(1,0) = 0; biTri.at(0)(1,1) = 1;  biTri.at(0)(1,2) = 0; biTri.at(0)(1,3) = ty.at(0);
-    biTri.at(0)(2,0) = 0; biTri.at(0)(2,1) = 0;  biTri.at(0)(2,2) = 1; biTri.at(0)(2,3) = tz.at(0);
-    biTri.at(0)(3,0) = 0; biTri.at(0)(3,1) = 0;  biTri.at(0)(3,2) = 0; biTri.at(0)(3,3) = 1;
-
-    biTri.at(1)(0,0) = 0; biTri.at(1)(0,1) = 0;  biTri.at(1)(0,2) = 1;  biTri.at(1)(0,3) = tx.at(1);
-    biTri.at(1)(1,0) = 0; biTri.at(1)(1,1) = -1;  biTri.at(1)(1,2) = 0; biTri.at(1)(1,3) = ty.at(1);
-    biTri.at(1)(2,0) = 1; biTri.at(1)(2,1) = 0;  biTri.at(1)(2,2) = 0;  biTri.at(1)(2,3) = tz.at(1); 
-    biTri.at(1)(3,0) = 0; biTri.at(1)(3,1) = 0;  biTri.at(1)(3,2) = 0;  biTri.at(1)(3,3) = 1;
-
-    biTri.at(2)(0,0) = 1; biTri.at(2)(0,1) = 0;  biTri.at(2)(0,2) = 0; biTri.at(2)(0,3) = tx.at(2);
-    biTri.at(2)(1,0) = 0; biTri.at(2)(1,1) = -1;  biTri.at(2)(1,2) = 0; biTri.at(2)(1,3) = ty.at(2);
-    biTri.at(2)(2,0) = 0; biTri.at(2)(2,1) = 0;  biTri.at(2)(2,2) = -1; biTri.at(2)(2,3) = tz.at(2);
-    biTri.at(2)(3,0) = 0; biTri.at(2)(3,1) = 0;  biTri.at(2)(3,2) = 0; biTri.at(2)(3,3) = 1;
-
-    biTri.at(3)(0,0) = -1; biTri.at(3)(0,1) = 0;  biTri.at(3)(0,2) = 0; biTri.at(3)(0,3) = tx.at(3);
-    biTri.at(3)(1,0) = 0; biTri.at(3)(1,1) = 1;  biTri.at(3)(1,2) = 0; biTri.at(3)(1,3) = ty.at(3);
-    biTri.at(3)(2,0) = 0; biTri.at(3)(2,1) = 0;  biTri.at(3)(2,2) = -1; biTri.at(3)(2,3) = tz.at(3); 
-    biTri.at(3)(3,0) = 0; biTri.at(3)(3,1) = 0;  biTri.at(3)(3,2) = 0; biTri.at(3)(3,3) = 1;
-
-    biTri.at(4)(0,0) = 0; biTri.at(4)(0,1) = 0;  biTri.at(4)(0,2) = -1; biTri.at(4)(0,3) = tx.at(4);
-    biTri.at(4)(1,0) = 0; biTri.at(4)(1,1) = 1;  biTri.at(4)(1,2) = 0; biTri.at(4)(1,3) = ty.at(4);
-    biTri.at(4)(2,0) = 1; biTri.at(4)(2,1) = 0;  biTri.at(4)(2,2) = 0; biTri.at(4)(2,3) = tz.at(4);
-    biTri.at(4)(3,0) = 0; biTri.at(4)(3,1) = 0;  biTri.at(4)(3,2) = 0; biTri.at(4)(3,3) = 1;
-
-    biTri.at(5)(0,0) = 0; biTri.at(5)(0,1) = 0;  biTri.at(5)(0,2) = 1; biTri.at(5)(0,3) = tx.at(5);
-    biTri.at(5)(1,0) = 0; biTri.at(5)(1,1) = 1;  biTri.at(5)(1,2) = 0; biTri.at(5)(1,3) = ty.at(5);
-    biTri.at(5)(2,0) = -1; biTri.at(5)(2,1) = 0;  biTri.at(5)(2,2) = 0; biTri.at(5)(2,3) = tz.at(5);
-    biTri.at(5)(3,0) = 0; biTri.at(5)(3,1) = 0;  biTri.at(5)(3,2) = 0; biTri.at(5)(3,3) = 1;
-
-    biTri.at(6)(0,0) = 0; biTri.at(6)(0,1) = 0;  biTri.at(6)(0,2) = 1; biTri.at(6)(0,3) = tx.at(6);
-    biTri.at(6)(1,0) = 0; biTri.at(6)(1,1) = 1;  biTri.at(6)(1,2) = 0; biTri.at(6)(1,3) = ty.at(6);
-    biTri.at(6)(2,0) = -1; biTri.at(6)(2,1) = 0;  biTri.at(6)(2,2) = 0; biTri.at(6)(2,3) = tz.at(6);
-    biTri.at(6)(3,0) = 0; biTri.at(6)(3,1) = 0;  biTri.at(6)(3,2) = 0; biTri.at(6)(3,3) = 1;
-
-    biTri.at(7)(0,0) = 0; biTri.at(7)(0,1) = 0;  biTri.at(7)(0,2) = 1; biTri.at(7)(0,3) = tx.at(7);
-    biTri.at(7)(1,0) = 0; biTri.at(7)(1,1) = 1;  biTri.at(7)(1,2) = 0; biTri.at(7)(1,3) = ty.at(7);
-    biTri.at(7)(2,0) = -1; biTri.at(7)(2,1) = 0;  biTri.at(7)(2,2) = 0; biTri.at(7)(2,3) = tz.at(7);
-    biTri.at(7)(3,0) = 0; biTri.at(7)(3,1) = 0;  biTri.at(7)(3,2) = 0; biTri.at(7)(3,3) = 1;
-
+    for (auto i = 0; i < numJoints; i++) {
+        biTri.at(i).RotationMatrix(rml::EulerRPY(roll.at(i),pitch.at(i),yaw.at(i)).ToRotationMatrix());
+        biTri.at(i).TranslationVector(Eigen::Vector3d(tx.at(i),ty.at(i),tz.at(i)));
+        std::cerr << "biTri.at(" << i << ") = " << std::endl << biTri.at(i) << std::endl;
+    }
 
     for (unsigned int i = 0; i < numJoints; ++i) {
-        //std::cout << "Adding link " << i << std::endl;
         AddJointLink(JointType::Revolute, Eigen::Vector3d::UnitZ(), biTri.at(i), jMin(i), jMax(i));
     }
 
-  /*  jointOffsetsSim[1] = M_PI_2;
-    jointOffsetsSim[3] = -M_PI_2;
-    jointDirectionSwapSim[1] = -1;*/
+    Eigen::TransformationMatrix torso_T_armj2 = biTri.at(0) * biTri.at(1);
+    Eigen::TransformationMatrix torso_T_armj7 = biTri.at(0) * biTri.at(1) * biTri.at(2) * biTri.at(3) * biTri.at(4) * biTri.at(5) * biTri.at(6) * biTri.at(7);
+    std::cerr << "0_d_1 = " << biTri.at(0).TranslationVector().transpose() << std::endl;
+    std::cerr << "1_d_2 = " << biTri.at(1).TranslationVector().transpose() << std::endl;
+    std::cerr << "0_d_2 = " << torso_T_armj2.TranslationVector().transpose() << std::endl;
+    std::cerr << "0_d_7 = " << torso_T_armj7.TranslationVector().transpose() << std::endl;
 
-    for (auto mat : biTri) {
-        std::cout << mat << std::endl;
-    }
+    std::cerr << "0_rpy_1 = " << biTri.at(0).RotationMatrix().ToEulerRPY() << std::endl;
+    std::cerr << "1_rpy_2 = " << biTri.at(1).RotationMatrix().ToEulerRPY() << std::endl;
+    std::cerr << "0_rpy_2 = " << torso_T_armj2.RotationMatrix().ToEulerRPY() << std::endl;
+    std::cerr << "0_rpy_7 = " << torso_T_armj7.RotationMatrix().ToEulerRPY() << std::endl;
 }
 
 AppleRobotModel::~AppleRobotModel()
