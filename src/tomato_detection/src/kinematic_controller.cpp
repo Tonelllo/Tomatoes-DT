@@ -46,12 +46,11 @@ KinematicController::KinematicController(std::shared_ptr<ros::NodeHandle> nodeHa
     ctrlDataPub_ = nh_->advertise<tomato_detection::ControlData>(prefix + appleRobot::topicnames::ctrl_data, 10);
     tpikActionPub_ = nh_->advertise<tomato_detection::TPIKAction>(prefix + appleRobot::topicnames::tpik_action, 10);
 
-    goal2GazeboPub_ = nh_->advertise<control_msgs::FollowJointTrajectoryActionGoal>(appleRobot::topicnames::pos2gazebo_sim, 10);
+    if (simulatedDriver) goal2GazeboPub_ = nh_->advertise<control_msgs::FollowJointTrajectoryActionGoal>(appleRobot::topicnames::pos2gazebo_sim, 10);
+    else goal2GazeboPub_ = nh_->advertise<control_msgs::FollowJointTrajectoryActionGoal>(appleRobot::topicnames::pos2gazebo, 10);
 
     driverCommandPub_ = nh_->advertise<tomato_detection::DriverCommand>(prefix + appleRobot::topicnames::driver_cmd, 10);
     driverCommandPub_ = nh_->advertise<tomato_detection::DriverCommand>(prefix + appleRobot::topicnames::driver_cmd, 10);
-
-    //pos2gazebo
     
     if (id_.find("left") != std::string::npos) {
         velPub_ = nh_->advertise<std_msgs::Float64MultiArray>("/left/joint_group_vel_controller/command", 10);
@@ -76,15 +75,29 @@ KinematicController::KinematicController(std::shared_ptr<ros::NodeHandle> nodeHa
 
     tSTART_ = tLastFeedback_ = tLastControl_ = ros::Time::now();
 
-    jointNameToIndex_["arm_1_joint"] = 0;
-    jointNameToIndex_["arm_2_joint"] = 1;
-    jointNameToIndex_["arm_3_joint"] = 2;
-    jointNameToIndex_["arm_4_joint"] = 3;
-    jointNameToIndex_["arm_5_joint"] = 4;
-    jointNameToIndex_["arm_6_joint"] = 5;
-    jointNameToIndex_["arm_7_joint"] = 6;
-    jointNameToIndex_["torso_lift_joint"] = 7;
-    jointNames_.resize(jointNameToIndex_.size());
+    if (!simulatedDriver) {
+        jointNameToIndex_["arm_left_1_joint"] = 0;
+        jointNameToIndex_["arm_left_2_joint"] = 1;
+        jointNameToIndex_["arm_left_3_joint"] = 2;
+        jointNameToIndex_["arm_left_4_joint"] = 3;
+        jointNameToIndex_["arm_left_5_joint"] = 4;
+        jointNameToIndex_["arm_left_6_joint"] = 5;
+        jointNameToIndex_["arm_left_7_joint"] = 6;
+        jointNameToIndex_["torso_lift_joint"] = 7;
+        jointNames_.resize(jointNameToIndex_.size());
+    }
+    else {
+        jointNameToIndex_["arm_1_joint"] = 0;
+        jointNameToIndex_["arm_2_joint"] = 1;
+        jointNameToIndex_["arm_3_joint"] = 2;
+        jointNameToIndex_["arm_4_joint"] = 3;
+        jointNameToIndex_["arm_5_joint"] = 4;
+        jointNameToIndex_["arm_6_joint"] = 5;
+        jointNameToIndex_["arm_7_joint"] = 6;
+        jointNameToIndex_["torso_lift_joint"] = 7;
+        jointNames_.resize(jointNameToIndex_.size());
+    }
+
 
     size_t startIdx = 0;
     for (auto jointName : jointNameToIndex_) {
@@ -156,7 +169,8 @@ bool KinematicController::Initialization()
     qfb_single = qdotcontrol_single = Eigen::VectorXd::Zero(numJoints);
 
     // Q_unfolded position
-    std::vector<double> init_q_single = { { 0.011, 0.11, -1.4, -0.11, 1.57, 0.0, 0, 0 } };
+    std::vector<double> init_q_single = { { 0.1999847056063805, -1.1075034625473623, 1.5007917305833804, 2.786711567502493, 1.494900110618816, -1.7950379729871873, 1.3910358204945792, 0.012468573582920278 } };
+    //  { 0.011, -0.11, -1.4, -0.11, 1.57, 0.0, 0, 0 }
 
     stateDataMsg_.position.resize(numJoints);
     for (size_t i = 0; i < numJoints; i++){
@@ -528,8 +542,11 @@ void KinematicController::Run()
             }
 
             // CHECK IF THERE IS STILL INCOMING FEEDBACK
-            double dtFbk = (ros::Time::now() - tLastFeedback_).toSec();
-            //std::cout << "dtFbk:" << dtFbk << std::endl;
+            auto tNow = ros::Time::now();
+            double dtFbk = (tNow - tLastFeedback_).toSec();
+            std::cout << tc::yellow << "dtFbk:" << dtFbk << tc::none << std::endl;
+            std::cout << tc::yellow << "tLastFeedback_:" << tLastFeedback_ << tc::none << std::endl;
+            std::cout << tc::yellow << "tNow:" << tNow << tc::none << std::endl;
             if (dtFbk > feedbackTimeout_) {
                 receivingFeedback_ = false;
                 ROS_WARN_STREAM("Feedback not received for more than " << std::to_string(feedbackTimeout_) << " seconds. Switching to Idle.");
@@ -593,31 +610,63 @@ void KinematicController::PublishTrajectory() {
         armJointNames.end()
     );
     jointTrajectoryMsg.joint_names = armJointNames;
-
-    trajectory_msgs::JointTrajectoryPoint jointTrajectoryPoint;
-    jointTrajectoryPoint.positions.resize(armJointNames.size(),0.0);
-    jointTrajectoryPoint.velocities.resize(armJointNames.size(),0.0);
-    jointTrajectoryPoint.effort.resize(armJointNames.size(),0.0);
-
-    std::cerr << "[Publish,Trajectory] ytpik = " << yTpik_.transpose() << std::endl;
     
-    targetJointPos_ = 0 * yTpik_ * dt_ + armModel_->JointsPosition(); // TODO REMOVE 0 *
-    std::cerr << "[Publish,Trajectory] targetJointPos_ = " << targetJointPos_.transpose() << std::endl;
-    for (auto i = 0; i < armJointNames.size(); i++) {
-        std::cerr << "[Publish,Trajectory] armJointNames = " << armJointNames[i] << std::endl;
-        jointTrajectoryPoint.positions[i] = targetJointPos_[i];
+    targetJointPos_ = yTpik_ * dt_ + armModel_->JointsPosition();
+    
+    if (posOccupated_ >= historyLen_) {
+        trajectoryPoints_[trajectoryIdxToUse_] = targetJointPos_;
+        posOccupated_ = historyLen_ + 1;
+    }
+    else {
+        trajectoryPoints_.push_back(targetJointPos_);
+        posOccupated_++;
+    }
+    trajectoryIdxToUse_ = (trajectoryIdxToUse_ + 1) % historyLen_;
+    if (posOccupated_ > historyLen_) {
+        trajectoryIdxStart_ = (trajectoryIdxStart_ + 1) % historyLen_;
+    }
+    else {
+        trajectoryIdxStart_ = 0;
     }
 
-    jointTrajectoryPoint.velocities.resize(armJointNames.size());
-    std::fill(jointTrajectoryPoint.velocities.begin(), jointTrajectoryPoint.velocities.end(), 0);
-    jointTrajectoryPoint.accelerations.resize(armJointNames.size());
-    std::fill(jointTrajectoryPoint.accelerations.begin(), jointTrajectoryPoint.accelerations.end(), 0);
+    std::cerr << "[Publish,Trajectory] ytpik = " << yTpik_.transpose() << std::endl;
+    std::cerr << "[Publish,Trajectory] targetJointPos_ = " << targetJointPos_.transpose() << std::endl;
+    std::cerr << "[Publish,Trajectory] posOccupated_ = " << posOccupated_ << std::endl;
 
-    jointTrajectoryPoint.time_from_start = ros::Duration(dt_);
-    jointTrajectoryMsg.points.push_back(jointTrajectoryPoint);
+    std::cerr << "[Publish,Trajectory] q seq = ";
+
+    for (int j = 0; j < std::min(historyLen_,posOccupated_); ++j) {
+        int q = (trajectoryIdxStart_ + j) % historyLen_;
+        trajectory_msgs::JointTrajectoryPoint jointTrajectoryPoint;
+        jointTrajectoryPoint.positions.resize(armJointNames.size(),0.0);
+        jointTrajectoryPoint.velocities.resize(armJointNames.size(),0.0);
+        jointTrajectoryPoint.effort.resize(armJointNames.size(),0.0);
+        for (auto i = 0; i < armJointNames.size(); i++) {
+            jointTrajectoryPoint.positions[i] = trajectoryPoints_[q][i];
+        }
+        std::cerr << q << " ";
+
+        jointTrajectoryPoint.velocities.resize(armJointNames.size()); // TODO remove?
+        std::fill(jointTrajectoryPoint.velocities.begin(), jointTrajectoryPoint.velocities.end(), 0);
+        jointTrajectoryPoint.accelerations.resize(armJointNames.size());
+        std::fill(jointTrajectoryPoint.accelerations.begin(), jointTrajectoryPoint.accelerations.end(), 0);
+
+        jointTrajectoryPoint.time_from_start = ros::Duration(dt_);
+
+        jointTrajectoryMsg.points.push_back(jointTrajectoryPoint);
+    }
 
     control_msgs::FollowJointTrajectoryActionGoal msg;
     msg.goal.trajectory = jointTrajectoryMsg;
+    std::cerr << std::endl << "POINTS --> ";
+    for (int ii = 0; ii < jointTrajectoryMsg.points.size(); ii++) {
+        auto pt = jointTrajectoryMsg.points[ii].positions;
+        for (auto jj = 0; jj < pt.size(); jj++) {
+            std::cerr << pt[jj] << " ";
+        }
+        std::cerr << ",";
+    }
+    std::cerr << std::endl;
     goal2GazeboPub_.publish(msg);
 
     std_msgs::Float64MultiArray velMsg;
@@ -625,7 +674,7 @@ void KinematicController::PublishTrajectory() {
     for (auto i = 0; i < jointNames_.size(); i++) {
         velMsg.data.push_back(yTpik_[i]);
     }
-    velPub_.publish(velMsg);
+    //velPub_.publish(velMsg);
 
 }
 
@@ -837,7 +886,7 @@ void KinematicController::StateDataCB(const sensor_msgs::JointState::ConstPtr &m
 {
     stateDataMsg_ = *msg;
 
-    //std::cerr << "KinematicController is receiving feedback!" << std::endl;
+    std::cerr << "KinematicController is receiving feedback!" << std::endl;
 
     //robotInfo_->arm_state_id = stateDataMsg_.arm_state_id;
     //robotInfo_->gripper_state_id = stateDataMsg_.gripper_state_id;
@@ -853,7 +902,7 @@ void KinematicController::StateDataCB(const sensor_msgs::JointState::ConstPtr &m
             auto myJointIdx = jointNameToIndex_[jointName];
             armPos(myJointIdx) = stateDataMsg_.position.at(fbkIdx);
             armVel(myJointIdx) = stateDataMsg_.velocity.at(fbkIdx);
-            //std::cerr << tc::bluL << "joint n " << myJointIdx << " has vel " << armVel(myJointIdx) << tc::none << std::endl;
+            std::cerr << tc::bluL << "joint n " << myJointIdx << " has vel " << armVel(myJointIdx) << tc::none << std::endl;
         }
     }
     
