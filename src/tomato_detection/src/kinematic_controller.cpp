@@ -630,7 +630,6 @@ void KinematicController::PublishTrajectory() {
                 jointTrajectoryPoint.positions[i] = pt[j];
             }
         }
-        //std::cerr << q << " ";
 
         jointTrajectoryPoint.time_from_start = ros::Duration(dt_ * (j + 1));
         jointTrajectoryMsg.points.push_back(jointTrajectoryPoint);
@@ -640,6 +639,12 @@ void KinematicController::PublishTrajectory() {
 
     control_msgs::FollowJointTrajectoryActionGoal msg;
     msg.goal.trajectory = jointTrajectoryMsg;
+    /*if (trajectoryPoints_.size() == trajectoryHistoryLen_) {
+        armGoalPub_.publish(msg);
+        trajectoryPoints_.clear();
+        trajectoryIdxToUse_ = 0;
+        trajectoryIdxStart_ = 0;
+    }*/
     armGoalPub_.publish(msg);
 
     // PUBLISH TORSO GOAL
