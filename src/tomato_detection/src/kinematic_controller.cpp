@@ -491,7 +491,7 @@ void KinematicController::SlowTimer()
     std::cerr << id_ << "[KCL] ytpik = " <<  yTpik_.transpose() << std::endl;
     std::cerr << id_ << "[KCL] believed joint position = " << armModel_->JointsPosition().transpose()  << std::endl;
     std::cerr << id_ << "[KCL] receivingFeedback_ = " << receivingFeedback_ << std::endl;
-    std::cerr << id_ << "[KCL] worldTtool = " << robotModel_->TransformationMatrix(robotInfo_->toolID) << std::endl;
+    std::cerr << id_ << "[KCL] worldTtool = " << robotModel_->TransformationMatrix(rml::FrameID::WorldFrame, robotInfo_->toolID) << std::endl;
     std::cerr << id_ << "[KCL] targetJointPos = " << targetJointPos_.transpose() << std::endl;
 }
 

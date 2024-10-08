@@ -107,6 +107,7 @@ fsm::retval MoveJointsPos::Execute()
     if (enableDbgPrnt) {
         std::cerr << tc::yellow << "[MoveJointsPos::Execute] TASK INFO Start..." << tc::none << std::endl;
         std::cerr << "robotModel->TransformationMatrix(ctrlInfo->toolID): " << std::endl << robotModel->TransformationMatrix(robotInfo->toolID) <<  std::endl;
+        std::cerr << tc::magL << "[MoveCartesian::Execute] wTtool = " << std::endl << robotModel->TransformationMatrix(rml::FrameID::WorldFrame, robotInfo->toolID) << std::endl;
         std::cerr << tc::magL << "[MoveJointsPos::Execute] Current joint pos = " << armModel->JointsPosition().transpose() << tc::none << std::endl;
         std::cerr << tc::magL << "[MoveJointsPos::Execute] Current joint pos = " << armModel->JointsPosition().transpose() << tc::none << std::endl;
         std::cerr << tc::magL << "[MoveJointsPos::Execute] Joint goal = " << robotInfo->jointsGoal.transpose() << tc::none << std::endl;

@@ -584,11 +584,11 @@ def TestTPIKServiceCart():
         controlCommandSrv = rospy.ServiceProxy('/left_robot/srv/control_command', ControlCommand)
         resp1 = controlCommandSrv(command_type = "move_cartesian",
             move_type = "absolute",
-            joint_setpoint = [0,0,0,0,0,0,0,0],
+            joint_setpoint = [],
             joint_index = 0,
             target_position = [0.842, 0.032, 0.707],
             target_orientation = [1.569, 0.000, 1.568],
-            frame_type = 0,
+            frame_type = 3,
             id = 0,
             gripper_setpoint = 0.0,
             grasp_current = 0.0,
@@ -642,9 +642,9 @@ def TestTPIKServiceJoint():
         print("Service call failed: %s"%e)
 
 if controllerType == ControllerType.TPIK:
-    #TestTPIKServiceCart()
-    TestTPIKServiceJoint()
-    #TestEachJoint(7)
+    TestTPIKServiceCart()
+    #TestTPIKServiceJoint()
+    #TestEachJoint(4)
 
 elif controllerType == ControllerType.MOVEIT:
     # radiants

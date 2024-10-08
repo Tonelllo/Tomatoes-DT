@@ -23,6 +23,8 @@ public:
 
     bool ConfigureStateFromFile(libconfig::Config& confObj) override;
     bool ok_;
+    
+    size_t cnt;
 
 };
 }

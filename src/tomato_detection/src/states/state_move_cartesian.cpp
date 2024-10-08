@@ -39,6 +39,8 @@ fsm::retval MoveCartesian::OnEntry()
     } else {
         return fsm::fail;
     }
+
+    cnt = 0;
 }
 
 bool MoveCartesian::SetCartesianGoal(boost::array<double, 3> target_xyz, boost::array<double, 3> target_rpy, const std::string &move_type, int frame_type)
@@ -95,30 +97,31 @@ bool MoveCartesian::SetCartesianGoal(boost::array<double, 3> target_xyz, boost::
 
 fsm::retval MoveCartesian::Execute()
 {
+    cnt++;
+    auto enableDbgPrnt = cnt % 100 == 0;
 
     //auto cartError = rml::CartesianError(robotModel->TransformationMatrix(robotInfo->toolID,rml::FrameID::WorldFrame), robotInfo->cartesianGoalFrame);
     auto cartError = rml::CartesianError(robotModel->TransformationMatrix(robotInfo->toolID), robotInfo->cartesianGoalFrame);
-    std::cerr << "wTgoal = " << std::endl << robotInfo->cartesianGoalFrame << std::endl;
 
-    //cartesianDistanceTask_->SetTargetDistance(cartError.LinearVector(), rml::FrameID::WorldFrame);
-    //cartesianOrientationTask_->SetTargetFrame(ctrlInfo->cartesianGoalFrame, rml::FrameID::WorldFrame);
-
+    if (enableDbgPrnt) {
+        std::cerr << tc::yellow << "[MoveCartesian::Execute] TASK INFO Start..." << tc::none << std::endl;
+        //std::cerr << tc::magL << "[MoveCartesian::Execute] Current joint pos = " << robotInfo->armModel_.JointsPosition().transpose() << tc::none << std::endl;
+        std::cerr << tc::magL << "[MoveCartesian::Execute] wTgoal = " << std::endl << robotInfo->cartesianGoalFrame << std::endl;
+        std::cerr << tc::magL << "[MoveCartesian::Execute] wTtool = " << std::endl << robotModel->TransformationMatrix(rml::FrameID::WorldFrame, robotInfo->toolID) << std::endl;
+        std::cerr << tc::yellow << "[MoveCartesian::Execute] Cartesian error = " << cartError.transpose();
+        std::cerr << " (lin err is " << cartError.LinearVector().cwiseAbs().norm() << 
+        ", ang err is " << cartError.AngularVector().cwiseAbs().norm() << ")" << tc::none << std::endl;
+        auto clrTime = tc::bluL;
+        if (conf->cartesianMoveTimeout - moveTimer_.Elapsed() < 5) clrTime = tc::redL;
+        else if (conf->cartesianMoveTimeout - moveTimer_.Elapsed() < 10) clrTime = tc::yellow;
+        std::cout << clrTime << "[MoveCartesian::Execute] Elapsed time is " << moveTimer_.Elapsed() << " out of " <<
+            conf->cartesianMoveTimeout << tc::none << std::endl;
+    }
     cartesianDistanceTask_->SetTargetDistance(cartError.LinearVector(), rml::FrameID::WorldFrame);
-   //cartesianDistanceTask_->SetTargetDistance()
     cartesianOrientationTask_->SetTargetFrame(robotInfo->cartesianGoalFrame, rml::FrameID::WorldFrame);
 
     cartesianDistanceTask_->Update();
     cartesianOrientationTask_->Update();
-
-    std::cerr << "CartesianError: " << cartError.transpose() << std::endl;
-    std::cerr << "cartesianDistanceTask_->ControlVariable(): " << cartesianDistanceTask_->ControlVariable().transpose() << std::endl;
-    std::cerr << "robotModel->TransformationMatrix(ctrlInfo->toolID): " << std::endl << robotModel->TransformationMatrix(robotInfo->toolID) <<  std::endl;
-    //std::cout << "Joints Pos: " << robotModel->Arm("youbot")->JointsPosition().transpose() << std::endl;
-    std::cerr << "cartesianDistanceTask_->ReferenceRate(): " << cartesianDistanceTask_->ReferenceRate().transpose() << std::endl;
-    //std::cout << "cartesianOrientationTask_->Reference(): " << cartesianOrientationTask_->Reference().transpose() << std::endl;
-    //std::cout << "***" << std::endl;
-
-    
 
     if ((cartError.LinearVector().cwiseAbs().norm() < conf->linearErrorThreshold)
             && (cartError.AngularVector().cwiseAbs().norm() < conf->angularErrorThreshold) ) {
@@ -130,13 +133,6 @@ fsm::retval MoveCartesian::Execute()
         fsm_->SetNextState(appleRobot::ID::states::idle);
         ok_ = false;
     }
-   //  std::cerr << "[MoveCartesian::Execute()] Ang Err is " << 
-   //      cartError.AngularVector().cwiseAbs().norm() << " with thr " << conf->angularErrorThreshold << std::endl;
-   // std::cerr << "[MoveCartesian::Execute()] Lin Err is " << 
-       // cartError.LinearVector().cwiseAbs().norm() << " with thr " << conf->linearErrorThreshold << std::endl;
-
-
-    //std::cout << "moveTimer_.Elapsed(): " << moveTimer_.Elapsed() << std::endl;
 
     return fsm::ok;
 }
