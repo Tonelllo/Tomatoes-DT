@@ -14,7 +14,7 @@ using std::placeholders::_1;
 template<> ros::Duration ros::TimeBase<ros::Time, ros::Duration>::operator-(const ros::Time &rhs) const;
 
 
-KinematicController::KinematicController(std::shared_ptr<ros::NodeHandle> nodeHandle, const std::string &conf_filename, bool simulatedDriver,
+KinematicController::KinematicController(std::shared_ptr<ros::NodeHandle> nodeHandle, const std::string &conf_filename, bool isSim,
         std::string prefix)
     : nh_(nodeHandle)
     , spinner_(1)
@@ -541,9 +541,6 @@ void KinematicController::Run()
             // CHECK IF THERE IS STILL INCOMING FEEDBACK
             auto tNow = ros::Time::now();
             double dtFbk = (tNow - tLastFeedback_).toSec();
-            std::cout << tc::yellow << "dtFbk:" << dtFbk << tc::none << std::endl;
-            std::cout << tc::yellow << "tLastFeedback_:" << tLastFeedback_ << tc::none << std::endl;
-            std::cout << tc::yellow << "tNow:" << tNow << tc::none << std::endl;
             if (dtFbk > feedbackTimeout_) {
                 receivingFeedback_ = false;
                 ROS_WARN_STREAM("Feedback not received for more than " << std::to_string(feedbackTimeout_) << " seconds. Switching to Idle.");
@@ -895,10 +892,6 @@ void KinematicController::StateDataCB(const sensor_msgs::JointState::ConstPtr &m
             //std::cerr << tc::bluL << "joint n " << myJointIdx << " has vel " << armVel(myJointIdx) << tc::none << std::endl;
         }
     }
-    
-    std::cerr << tc::greenL << "joint pos = " << armPos.transpose() << std::endl;
-    std::cerr << tc::greenL << "joint vel = " << armVel.transpose() << std::endl;
-    std::cerr << tc::none << std::endl;
 
     armModel_->JointsPosition(armPos);
     armModel_->JointsVelocity(armVel);

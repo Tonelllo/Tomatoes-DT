@@ -585,7 +585,7 @@ def TestTPIKService():
         resp1 = controlCommandSrv(command_type = "move_joints_pos",
             move_type = "absolute",
             #joint_setpoint = [0,-0.7,-0.1,-0.1,0,0,0,0],
-            joint_setpoint = [0.0,0,0,0,0,0,0,0.0],
+            joint_setpoint = [0,0,0,0,0,0,0,0.0],
             #joint_setpoint = [0.011, -0.52, 0.7, 0.52, 1.57, -1.57, 0, 0],
             #joint_setpoint = [0.1,0,0,0,0,0,0,0,0],
             joint_index = 0,
