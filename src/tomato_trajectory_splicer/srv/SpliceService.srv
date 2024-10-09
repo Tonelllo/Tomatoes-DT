@@ -1,4 +1,5 @@
 moveit_msgs/RobotTrajectory traj1
 moveit_msgs/RobotTrajectory traj2
 ---
+bool success
 moveit_msgs/RobotTrajectory res

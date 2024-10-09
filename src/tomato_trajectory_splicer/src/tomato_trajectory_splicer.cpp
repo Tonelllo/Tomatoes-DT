@@ -52,6 +52,8 @@ public:
     if (!success)
     {
       ROS_WARN("Not able to splice trajectories");
+      res.success = false;
+      return true;
     }
     moveit_msgs::RobotTrajectory out;
     robotTraj.getRobotTrajectoryMsg(out);
@@ -59,6 +61,7 @@ public:
     {
       point.time_from_start += ros::Duration(0, 100);
     }
+    res.success = true;
     res.res = out;
     return true;
   }
