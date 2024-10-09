@@ -1,0 +1,13 @@
+<launch>
+	<node name = "octomap_server" pkg="octomap_server" type="octomap_server_node" output="screen">
+		<param name="frame_id" value="base_footprint" />
+		<param name="base_frame_id" value="base_footprint"/>
+		<param name="resolution" value="0.02" />
+		<param name="sensor_model/max_range" value="3.0" />
+        <param name="padding_offset" value="0.03" />
+        <param name="padding_scale" value="1.0" />
+        <param name="latch" value="false" />
+		<remap from="cloud_in" to="/throttle_filtering_points/filtered_points"/>
+	</node>
+	<node name = "tomato_octo_updater" pkg="tomato_octo" type="tomato_octomap" output="screen"/>
+</launch>

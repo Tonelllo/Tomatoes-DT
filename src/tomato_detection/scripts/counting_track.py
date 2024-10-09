@@ -17,7 +17,7 @@ class Model_used(Enum):
     DETECTION = 2
 
 
-mode = Model_used.TRACKING
+mode = Model_used.DETECTION
 
 """
 Description:
@@ -34,7 +34,7 @@ bridge = CvBridge()
 
 rospack = rospkg.RosPack()
 node_path = rospack.get_path("tomato_detection") + "/models/"
-model = YOLO(node_path + "tomato_80prec_70rec.pt")
+model = YOLO(node_path + "yolov10_80p_70r.pt")
 # pub = rospy.Publisher("detection/current_count", Int8, queue_size=5)
 count = 0
 history = []

@@ -389,7 +389,7 @@ def poseCallBack(positions):
     # print(toReach)
     sub.unregister()
 
-    toReachTS = filter(isRipe, toReachTS)
+    # toReachTS = filter(isRipe, toReachTS)
     toReach = sorted(toReachTS, key=lambda elem: elem.position.x)
 
     index = 0

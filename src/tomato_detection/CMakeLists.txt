@@ -25,6 +25,7 @@ find_package(catkin REQUIRED COMPONENTS
     tf_conversions
 )
 
+
 add_message_files(
   FILES
   state_info.msg
@@ -38,6 +39,7 @@ add_message_files(
   TPIKAction.msg
   TPIKPriorityLevel.msg
 )
+
 
 ## System dependencies are found with CMake's conventions
 find_package(Boost REQUIRED COMPONENTS system)
@@ -83,6 +85,7 @@ find_package(Boost REQUIRED COMPONENTS system)
 add_service_files(
   FILES
   BestPos.srv
+  LatestTomatoPositions.srv
   CustomSignal.srv
   ControlCommand.srv
   RosbagCmd.srv
@@ -193,7 +196,6 @@ add_executable(agri_kinematic_controller src/kinematic_controller_node.cpp src/c
   src/commands/generic_command.cpp
   src/states/generic_state.cpp)
 target_link_libraries(agri_kinematic_controller ${catkin_LIBRARIES} rml ikcl ctrl_toolbox fsm tpik config++ )
-
 
 #############
 ## Install ##
