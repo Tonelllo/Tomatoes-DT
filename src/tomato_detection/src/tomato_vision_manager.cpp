@@ -20,8 +20,6 @@
 #include <Eigen/Core>
 #include <ros/ros.h>
 #include <strings.h>
-#include "tomato_detection/getLatestTomatoPositionsRequest.h"
-#include "tomato_detection/getLatestTomatoPositionsResponse.h"
 #include "tomato_vision_manager.h"
 #include <pcl_conversions/pcl_conversions.h>
 #include <tf2_eigen/tf2_eigen.h>
@@ -61,8 +59,8 @@ VisionManager::VisionManager(ros::NodeHandle& nh)
   m_tfListener_ = new tf2_ros::TransformListener(m_buffer_);
 }
 
-bool VisionManager::getLatestTomatoPositions(tomato_detection::getLatestTomatoPositionsRequest& req,
-                                             tomato_detection::getLatestTomatoPositionsResponse&res)
+bool VisionManager::getLatestTomatoPositions(tomato_detection::LatestTomatoPositionsRequest& req,
+                                             tomato_detection::LatestTomatoPositionsResponse&res)
 {
   poseMutex.lock();
   res.tomatoes = m_latest_positions;
