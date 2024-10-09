@@ -21,6 +21,7 @@ import numpy as np
 from tomato_detection.srv import BestPos
 from threading import Lock
 from tomato_detection.srv import LatestTomatoPositions
+from tomato_detection.msg import ControlData
 
 GROUP_NAME = "arm_torso"
 TARGET_OFFSET = 0.21
@@ -40,6 +41,60 @@ T_ANGLE = 0
 D_ANGLE = 60
 RL_STEP = 30
 TD_STEP = 20
+
+taskData: ControlData
+taskData = None
+
+class MotionState(Enum):
+    MOTION_FINISHED = 1
+    MOTION_ONGOING = 2
+    MOTION_FAILED = 3
+    MOTION_REQUESTED = 4
+
+def TaskDataCallback(data):
+    global taskData
+    taskData = data
+
+# MvJnt function to send joint commands
+def RequestJointMotion(joint_coordinates, motion_id):
+    from tomato_detection.srv import ControlCommand
+    rospy.wait_for_service('/left_robot/srv/control_command')
+    try:
+        controlCommandSrv = rospy.ServiceProxy('/left_robot/srv/control_command', ControlCommand)
+        resp = controlCommandSrv(
+            command_type="move_joints_pos",
+            move_type="absolute",
+            joint_setpoint=joint_coordinates,
+            joint_index=0,  # Update as needed
+            target_position=[0.0, 0.0, 0.0],  # Update as needed
+            target_orientation=[0.0, 0.0, 0.0],  # Update as needed
+            frame_type=0,
+            id=motion_id,  # Use the motion_id parameter
+            gripper_setpoint=0.0,
+            grasp_current=0.0,
+            enableObstacleAvoidance=False
+        )
+        print("Joint movement command sent:", resp)
+    except rospy.ServiceException as e:
+        print("Service call failed: %s" % e)
+
+def MoveJoints(joint_coordinates, motion_id, currId, current_state, time_elapsed, timeout):
+    timeElapsedTPIK = -1
+    motionStatus = MotionState.MOTION_FAILED
+    if time_elapsed > timeout:
+        SendStop()
+    elif time_elapsed < 0:
+        RequestJointMotion(joint_coordinates, motion_id)
+        timeElapsedTPIK = 0
+        print("request done")
+        motionStatus = MotionState.MOTION_REQUESTED
+    elif "idle" in current_state and int(currId) == int(motion_id):
+        timeElapsedTPIK = -1
+        motionStatus = MotionState.MOTION_FINISHED
+    else:
+        timeElapsedTPIK = time_elapsed + 1
+        motionStatus = MotionState.MOTION_ONGOING
+    return motionStatus, timeElapsedTPIK
 
 class ControllerType(Enum): #LTA
     MOVEIT = 1 #LTA
@@ -420,7 +475,7 @@ def pickTomato():
     :param goal_pose Pose: Position of the tomato wrt the base_footprint frame
     :param radius Double: Radius of the tomato to pick
     """
-    global status_array
+    global status_array, taskData
     failed_pick = False
     state = States.GET_FIRST_TOMATOES
     old_state = state
@@ -432,30 +487,42 @@ def pickTomato():
     next_tomato = None
     initial_robot_state = None
 
+    timeElapsedTPIK = -1
+
     rospy.sleep(1.0)
 
     while True:
         if state == States.GET_FIRST_TOMATOES:
             # TODO move to external function
-            resetHead()
-            openGripper()
-            move_group.set_joint_value_target(BASKET_JOINT_POSITION)
-            move_group.set_planning_time(3.0)
-            suc = move_group.go(wait=True)
-            move_group.set_planning_time(PLANNING_TIMEOUT)
-            initial_robot_state = move_group.get_current_state()
-            if not suc:
-                rospy.signal_shutdown("ERROR NOT RECOVERABLE")
-                sys.exit()
-                rospy.logerr("Start not reachable")
+            #resetHead()
+            #openGripper()
+            if controllerType == ControllerType.TPIK:
+                print("[tpik] first tomato!")
+                taskDataCopy = copy.copy(taskData)
+                taskDataCopy: ControlData
+                motionStatus, timeElapsedTPIK = MoveJoints(BASKET_JOINT_POSITION, 2, taskDataCopy.idMotion, taskDataCopy.ctrl_state, timeElapsedTPIK, 1000000)
+                #motionStatus, timeElapsedTPIK = MoveJoints([0] * 8, 2, taskDataCopy.idMotion, taskDataCopy.ctrl_state, timeElapsedTPIK, 500000)
+                print("motionStatus --> " + str(motionStatus) + ", timeElapsedTPIK = " + str(timeElapsedTPIK) +
+                    ", ctrl_state = " + str(taskDataCopy.ctrl_state))
+            else:
+                move_group.set_joint_value_target(BASKET_JOINT_POSITION)
+                move_group.set_planning_time(3.0)
+                suc = move_group.go(wait=True)
+                move_group.set_planning_time(PLANNING_TIMEOUT)
+                initial_robot_state = move_group.get_current_state()
+                if not suc:
+                    rospy.signal_shutdown("ERROR NOT RECOVERABLE")
+                    sys.exit()
+                    rospy.logerr("Start not reachable")
 
-            (poses, tomato_id, radius) = getTomatoPoses()
-            current_tomato = getNewValidTomato(poses)
-            goal_pose = current_tomato
-            lookAtTomato(goal_pose)
-            processed_tomatoes.append(
-                np.array([goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z]))
-            state = States.PLAN_APPROACH
+            if (controllerType == ControllerType.MOVEIT) or (motionStatus == MotionState.MOTION_FINISHED):
+                (poses, tomato_id, radius) = getTomatoPoses()
+                current_tomato = getNewValidTomato(poses)
+                goal_pose = current_tomato
+                lookAtTomato(goal_pose)
+                processed_tomatoes.append(
+                    np.array([goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z]))
+                state = States.PLAN_APPROACH
 
         elif state == States.HOME:
             (poses, tomato_id, radius) = getTomatoPoses()
@@ -733,7 +800,7 @@ def TestTPIKServiceJoint():
             target_position = [0.0, 0.0, 0.0],
             target_orientation = [0.0, 0.0, 0.0],
             frame_type = 0,
-            id = 0,
+            id = 1,
             gripper_setpoint = 0.0,
             grasp_current = 0.0,
             enableObstacleAvoidance = False)
@@ -743,16 +810,21 @@ def TestTPIKServiceJoint():
 
 
 if controllerType == ControllerType.TPIK:
-    #TestTPIKServiceCart()
-    TestTPIKServiceJoint()
-    #TestEachJoint(-1)
+    #TestTPIKServiceCart() # TODO COMMENT
+    #TestTPIKServiceJoint() # TODO COMMENT
+    #TestEachJoint(1) # TODO COMMENT
+
+    rospy.init_node("positionReacher")
+    rospy.Subscriber('/left_robot/ctrl/ctrl_data', ControlData, TaskDataCallback, queue_size=1)
+    pickTomato()
+    #rospy.spin()
+
 
 elif controllerType == ControllerType.MOVEIT:
     # radiants
     # goal_pose.pose.orientation = tf.transformations.from_quaternion_euler(0, 0, 0)
     moveit_commander.roscpp_initialize(sys.argv)
     rospy.init_node("positionReacher")
-
 
     robot = moveit_commander.RobotCommander()
     names = robot.get_group_names()

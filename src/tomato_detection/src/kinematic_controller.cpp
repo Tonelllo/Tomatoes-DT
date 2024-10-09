@@ -47,7 +47,7 @@ KinematicController::KinematicController(std::shared_ptr<ros::NodeHandle> nodeHa
     tpikActionPub_ = nh_->advertise<tomato_detection::TPIKAction>(prefix + appleRobot::topicnames::tpik_action, 10);
 
     if (isSim) armGoalPub_ = nh_->advertise<control_msgs::FollowJointTrajectoryActionGoal>(appleRobot::topicnames::armGoalSim, 10);
-    else armGoalPub_ = nh_->advertise<control_msgs::FollowJointTrajectoryActionGoal>(appleRobot::topicnames::armGoalSim, 10);
+    else armGoalPub_ = nh_->advertise<control_msgs::FollowJointTrajectoryActionGoal>(appleRobot::topicnames::armGoal, 10);
     torsoGoalPub_ = nh_->advertise<control_msgs::FollowJointTrajectoryActionGoal>(appleRobot::topicnames::torsoGoal, 10);
 
     driverCommandPub_ = nh_->advertise<tomato_detection::DriverCommand>(prefix + appleRobot::topicnames::driver_cmd, 10);
