@@ -126,11 +126,11 @@ fsm::retval MoveJointsPos::Execute()
     if (error.cwiseAbs().maxCoeff() < conf->angularErrorThreshold) {
 
         std::cout << tc::greenL << "[KCL] Joint Position Reached." << tc::none << std::endl;
-       // fsm_->SetNextState(appleRobot::ID::states::idle);
+        fsm_->SetNextState(appleRobot::ID::states::idle);
         ok_ = true;
     } else if (moveTimer_.Elapsed() > conf->cartesianMoveTimeout) {
         std::cout << tc::redL << "[KCL]: Joint Position Move Timeout Reached." << tc::none << std::endl;
-       // fsm_->SetNextState(appleRobot::ID::states::idle);
+        fsm_->SetNextState(appleRobot::ID::states::idle);
         ok_ = false;
     }
     if (enableDbgPrnt) std::cerr << tc::yellow << "[MoveJointsPos::Execute] TASK INFO Finish!" << tc::none << std::endl;

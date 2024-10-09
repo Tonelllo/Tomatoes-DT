@@ -586,8 +586,9 @@ def TestTPIKServiceCart():
             move_type = "absolute",
             joint_setpoint = [],
             joint_index = 0,
-            target_position = [0.842, 0.032, 0.707],
-            target_orientation = [1.569, 0.000, 1.568],
+            #target_position = [0.5, -0.3, 0.74],
+            target_position = [0.11, -0.74, 0.7],
+            target_orientation = [1.548, -0.001, 0.010],
             frame_type = 3,
             id = 0,
             gripper_setpoint = 0.0,
@@ -629,6 +630,7 @@ def TestTPIKServiceJoint():
         resp1 = controlCommandSrv(command_type = "move_joints_pos",
             move_type = "absolute",
             joint_setpoint = [0,0,0,0,0,0,0,0],
+            #joint_setpoint = [0.35,0,-0.85,-0.57,0.39,-0.98,0.86,1.24],
             joint_index = 0,
             target_position = [0.0, 0.0, 0.0],
             target_orientation = [0.0, 0.0, 0.0],
@@ -642,8 +644,8 @@ def TestTPIKServiceJoint():
         print("Service call failed: %s"%e)
 
 if controllerType == ControllerType.TPIK:
-    TestTPIKServiceCart()
-    #TestTPIKServiceJoint()
+    #TestTPIKServiceCart()
+    TestTPIKServiceJoint()
     #TestEachJoint(4)
 
 elif controllerType == ControllerType.MOVEIT:
