@@ -587,7 +587,7 @@ def TestTPIKServiceCart():
             joint_setpoint = [],
             joint_index = 0,
             #target_position = [0.5, -0.3, 0.74],
-            target_position = [0.11, -0.74, 0.7],
+            target_position = [0.14, -0.72, 0.8],
             target_orientation = [1.548, -0.001, 0.010],
             frame_type = 3,
             id = 0,
@@ -602,7 +602,7 @@ def TestTPIKServiceCart():
 def TestEachJoint(i: int):
     rospy.wait_for_service('/left_robot/srv/control_command')
     jointTarget = [0] * 8
-    jointTarget[i] = 1.5
+    if i >= 0: jointTarget[i] = 1.5
     from tomato_detection.srv import ControlCommand
     try:
         controlCommandSrv = rospy.ServiceProxy('/left_robot/srv/control_command', ControlCommand)
@@ -645,8 +645,8 @@ def TestTPIKServiceJoint():
 
 if controllerType == ControllerType.TPIK:
     #TestTPIKServiceCart()
-    TestTPIKServiceJoint()
-    #TestEachJoint(4)
+    #TestTPIKServiceJoint()
+    TestEachJoint(2)
 
 elif controllerType == ControllerType.MOVEIT:
     # radiants
