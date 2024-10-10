@@ -126,7 +126,7 @@ fsm::retval MoveCartesian::Execute()
     if ((cartError.LinearVector().cwiseAbs().norm() < conf->linearErrorThreshold)
             && true) { //(cartError.AngularVector().cwiseAbs().norm() < conf->angularErrorThreshold) ) {
         std::cout << tc::greenL << "[KCL]: Cartesian Position Reached (lin err is " << cartError.LinearVector().cwiseAbs().norm() << ")." << tc::none << std::endl;
-        //fsm_->SetNextState(appleRobot::ID::states::idle);
+        fsm_->SetNextState(appleRobot::ID::states::idle);
         ok_ = true;
     } else if (moveTimer_.Elapsed() > conf->cartesianMoveTimeout) {
         std::cout << tc::redL << "[KCL]: Cartesian Move Timeout Reached." << tc::none << std::endl;

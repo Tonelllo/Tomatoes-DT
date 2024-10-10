@@ -103,7 +103,6 @@ class ControllerType(Enum): #LTA
     TPIK_TEST = 3 #LTA
 
 controllerType: ControllerType
-controllerType = ControllerType.TPIK
 
 class States(Enum):
     """States for the state machine."""
@@ -534,26 +533,31 @@ def pickTomato():
                 next_tomato = None
             else:
                 state = States.PLAN_APPROACH
-
+    ``
         elif state == States.PLAN_APPROACH:
             old_state = state
             rospy.loginfo("Planning approach for tomato [%d]", tomato_id)
             setMarker(goal_pose.pose)
-            # TODO Check for plan fail
-            if next_tomato is None:
-                rospy.loginfo("First iteration")
-                next_tomato = planNextApproach(goal_pose, radius)
-                if next_tomato is False:
-                    next_tomato = None
-                    state = States.GET_FIRST_TOMATOES
-                    continue
-            lookAtTomato(goal_pose)
-            (success, trajectory, time, error, gpos, ppos, idx) = next_tomato
-            move_group.execute(trajectory, wait=True)
-            # TODO probably not needed
-            l_approach_pose = copy.deepcopy(gpos)
-            l_pick_pose = copy.deepcopy(ppos)
-            rospy.logwarn("Planning approach SUCCESS")
+            if controllerType == ControllerType.TPIK:
+                poses = generate_grasp_poses(goal_pose, APPROACH_OFFSET)
+                pose1 = poses[int(len(poses)/2.0)]
+                print(pose1)
+            elif controllerType == ControllerType.MOVEIT:
+                # TODO Check for plan fail
+                if next_tomato is None:
+                    rospy.loginfo("First iteration")
+                    next_tomato = planNextApproach(goal_pose, radius)
+                    if next_tomato is False:
+                        next_tomato = None
+                        state = States.GET_FIRST_TOMATOES
+                        continue
+                    lookAtTomato(goal_pose)
+                    (success, trajectory, time, error, gpos, ppos, idx) = next_tomato
+                    move_group.execute(trajectory, wait=True)
+                    # TODO probably not needed
+                    l_approach_pose = copy.deepcopy(gpos)
+                    l_pick_pose = copy.deepcopy(ppos)
+                    rospy.logwarn("Planning approach SUCCESS")
 
             state = States.EXECUTING_MOVEMENT
         elif state == States.PLAN_PICK:
@@ -792,6 +796,29 @@ def TestEachJoint(i: int):
         print("Service call failed: %s"%e)
 
 # tpik state from /left_robot/ctrl/ctrl_data
+def SendStop():
+    return
+    rospy.wait_for_service('/left_robot/srv/control_command')
+    from tomato_detection.srv import ControlCommand
+    try:
+        controlCommandSrv = rospy.ServiceProxy('/left_robot/srv/control_command', ControlCommand)
+        resp1 = controlCommandSrv(command_type = "idle",
+            move_type = "absolute",
+            joint_setpoint = [],
+            #joint_setpoint = [0.35,0,-0.85,-0.57,0.39,-0.98,0.86,1.24],
+            joint_index = 0,
+            target_position = [],
+            target_orientation = [],
+            frame_type = 0,
+            id = 1,
+            gripper_setpoint = 0.0,
+            grasp_current = 0.0,
+            enableObstacleAvoidance = False)
+        print(resp1)
+    except rospy.ServiceException as e:
+        print("Service call failed: %s"%e)
+
+# tpik state from /left_robot/ctrl/ctrl_data
 def TestTPIKServiceJoint():
     rospy.wait_for_service('/left_robot/srv/control_command')
     from tomato_detection.srv import ControlCommand
@@ -814,11 +841,13 @@ def TestTPIKServiceJoint():
         print("Service call failed: %s"%e)
 
 
-if controllerType == ControllerType.TPIK_TEST:
-    #TestTPIKServiceCart() # TODO COMMENT
-    TestTPIKServiceJoint() # TODO COMMENT
-    #TestEachJoint(1) # TODO COMMENT
+controllerType = ControllerType.TPIK
 
+if controllerType == ControllerType.TPIK_TEST:
+    #TestTPIKServiceCart()
+    #TestTPIKServiceJoint()
+    #TestEachJoint(1)
+    SendStop()
 elif controllerType == ControllerType.TPIK:
 
     rospy.init_node("positionReacher")
