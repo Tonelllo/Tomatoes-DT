@@ -50,6 +50,7 @@ class MotionState(Enum):
     MOTION_ONGOING = 2
     MOTION_FAILED = 3
     MOTION_REQUESTED = 4
+    UNKNOWN = 5
 
 def TaskDataCallback(data):
     global taskData
@@ -99,6 +100,7 @@ def MoveJoints(joint_coordinates, motion_id, currId, current_state, time_elapsed
 class ControllerType(Enum): #LTA
     MOVEIT = 1 #LTA
     TPIK = 2 #LTA
+    TPIK_TEST = 3 #LTA
 
 controllerType: ControllerType
 controllerType = ControllerType.TPIK
@@ -496,14 +498,15 @@ def pickTomato():
             # TODO move to external function
             #resetHead()
             #openGripper()
+            motionStatus = MotionState.UNKNOWN
             if controllerType == ControllerType.TPIK:
-                print("[tpik] first tomato!")
                 taskDataCopy = copy.copy(taskData)
                 taskDataCopy: ControlData
-                motionStatus, timeElapsedTPIK = MoveJoints(BASKET_JOINT_POSITION, 2, taskDataCopy.idMotion, taskDataCopy.ctrl_state, timeElapsedTPIK, 1000000)
-                #motionStatus, timeElapsedTPIK = MoveJoints([0] * 8, 2, taskDataCopy.idMotion, taskDataCopy.ctrl_state, timeElapsedTPIK, 500000)
-                print("motionStatus --> " + str(motionStatus) + ", timeElapsedTPIK = " + str(timeElapsedTPIK) +
-                    ", ctrl_state = " + str(taskDataCopy.ctrl_state))
+                if taskDataCopy is not None:
+                    motionStatus, timeElapsedTPIK = MoveJoints(BASKET_JOINT_POSITION, 2, taskDataCopy.idMotion, taskDataCopy.ctrl_state, timeElapsedTPIK, 1000000)
+                    #motionStatus, timeElapsedTPIK = MoveJoints([0] * 8, 2, taskDataCopy.idMotion, taskDataCopy.ctrl_state, timeElapsedTPIK, 500000)
+                    #print("motionStatus --> " + str(motionStatus) + ", timeElapsedTPIK = " + str(timeElapsedTPIK) +
+                        #", ctrl_state = " + str(taskDataCopy.ctrl_state))
             else:
                 move_group.set_joint_value_target(BASKET_JOINT_POSITION)
                 move_group.set_planning_time(3.0)
@@ -722,6 +725,8 @@ def getTomatoPoses():
     #     sys.exit()
 
     poses = []
+    id = None
+    radius = 0.0
     for pose in toReach:
         if not math.isnan(float(pose.position.x)):
             goal_pose = PoseStamped()
@@ -809,15 +814,54 @@ def TestTPIKServiceJoint():
         print("Service call failed: %s"%e)
 
 
-if controllerType == ControllerType.TPIK:
+if controllerType == ControllerType.TPIK_TEST:
     #TestTPIKServiceCart() # TODO COMMENT
-    #TestTPIKServiceJoint() # TODO COMMENT
+    TestTPIKServiceJoint() # TODO COMMENT
     #TestEachJoint(1) # TODO COMMENT
+
+elif controllerType == ControllerType.TPIK:
 
     rospy.init_node("positionReacher")
     rospy.Subscriber('/left_robot/ctrl/ctrl_data', ControlData, TaskDataCallback, queue_size=1)
+    gripper_client = actionlib.SimpleActionClient(
+        "/gripper_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
+    gripper_client.wait_for_server()
+    print("[TPIK] gripper ok")
+
+    point_head_client = actionlib.SimpleActionClient(
+        "/head_controller/point_head_action", PointHeadAction)
+    point_head_client.wait_for_server()
+    print("[TPIK] point ok")
+
+    marker_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=2)
+    gripper_pub = rospy.Publisher(
+        "/parallel_gripper_controller/command", JointTrajectory, queue_size=2)
+    print("[TPIK] marker, gripper pub ok")
+
+    getBestHeadPos = rospy.ServiceProxy("/tomato_counting/get_best_tilt", BestPos)
+    getBestHeadPos.wait_for_service()
+    print("[TPIK] get best head ok")
+
+    head_client = actionlib.SimpleActionClient(
+        "/head_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
+    head_client.wait_for_server()
+    print("[TPIK] head client ok")
+
+    rospy.wait_for_service("/tomato_counting/get_best_tilt")
+    rospy.loginfo("Service get_best_tilt ready")
+    print("[TPIK] best tilt ok")
+
+    #addBasket()
+    print("[TPIK] add basket ok")
+
+    rospy.wait_for_service("/tomato_vision_manager/tomato_position_service")
+    getTomatoPosesProxy = rospy.ServiceProxy(
+        "/tomato_vision_manager/tomato_position_service", LatestTomatoPositions)
+
     pickTomato()
-    #rospy.spin()
+    print("[TPIK] pick tomato ok")
+
+    rospy.spin()
 
 
 elif controllerType == ControllerType.MOVEIT:

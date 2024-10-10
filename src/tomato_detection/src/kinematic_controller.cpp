@@ -588,13 +588,6 @@ void KinematicController::PublishTrajectory() {
     jointTrajectoryMsg.header.stamp = ros::Time::now();
     targetJointPos_ = yTpik_ * dt_ + armModel_->JointsPosition();
 
-    auto trajectoryVecFull = (trajectoryPoints_.size() == trajectoryHistoryLen_);
-    if (trajectoryPoints_.size() == trajectoryHistoryLen_) trajectoryPoints_[trajectoryIdxToUse_] = targetJointPos_;
-    else trajectoryPoints_.push_back(targetJointPos_);
-    trajectoryIdxToUse_ = (trajectoryIdxToUse_ + 1) % trajectoryHistoryLen_;
-    if (trajectoryVecFull) trajectoryIdxStart_ = (trajectoryIdxStart_ + 1) % trajectoryHistoryLen_;
-    else trajectoryIdxStart_ = 0;
-
     // PUBLISH ARM JOINT GOAL
     auto armJointNames = jointNames_;
     armJointNames.erase(
@@ -605,38 +598,27 @@ void KinematicController::PublishTrajectory() {
         ),
         armJointNames.end()
     );
-    jointTrajectoryMsg.joint_names = armJointNames;  
-    //std::cerr << "points idx --> ";
-    for (int j = 0; j < trajectoryPoints_.size(); ++j) {
-        int q = (trajectoryIdxStart_ + j) % trajectoryHistoryLen_;
-        auto pt = trajectoryPoints_[q];
-        trajectory_msgs::JointTrajectoryPoint jointTrajectoryPoint;
-        jointTrajectoryPoint.positions.resize(armJointNames.size(),0.0);
-        jointTrajectoryPoint.velocities.resize(armJointNames.size(),0.0);
-        jointTrajectoryPoint.accelerations.resize(armJointNames.size(),0.0);
-        jointTrajectoryPoint.effort.resize(armJointNames.size(),0.0);
-        
-        for (auto i = 0; i < armJointNames.size(); i++) {
-            if (jointNameToIndex_.find(armJointNames.at(i)) != jointNameToIndex_.end()) {
-                auto j = jointNameToIndex_.at(armJointNames.at(i));
-                jointTrajectoryPoint.positions[i] = pt[j];
-            }
+    jointTrajectoryMsg.joint_names = armJointNames;
+    
+    trajectory_msgs::JointTrajectoryPoint jointTrajectoryPoint;
+    jointTrajectoryPoint.positions.resize(armJointNames.size(),0.0);
+    jointTrajectoryPoint.velocities.resize(armJointNames.size(),0.0);
+    jointTrajectoryPoint.accelerations.resize(armJointNames.size(),0.0);
+    jointTrajectoryPoint.effort.resize(armJointNames.size(),0.0);
+    
+    for (auto i = 0; i < armJointNames.size(); i++) {
+        if (jointNameToIndex_.find(armJointNames.at(i)) != jointNameToIndex_.end()) {
+            auto j = jointNameToIndex_.at(armJointNames.at(i));
+            jointTrajectoryPoint.positions[i] = targetJointPos_[j];
         }
-
-        jointTrajectoryPoint.time_from_start = ros::Duration(dt_ * (j + 1));
-        jointTrajectoryMsg.points.push_back(jointTrajectoryPoint);
-        break;
     }
+
+    jointTrajectoryPoint.time_from_start = ros::Duration(dt_);
+    jointTrajectoryMsg.points.push_back(jointTrajectoryPoint);
     //std::cerr << std::endl;
 
     control_msgs::FollowJointTrajectoryActionGoal msg;
     msg.goal.trajectory = jointTrajectoryMsg;
-    /*if (trajectoryPoints_.size() == trajectoryHistoryLen_) {
-        armGoalPub_.publish(msg);
-        trajectoryPoints_.clear();
-        trajectoryIdxToUse_ = 0;
-        trajectoryIdxStart_ = 0;
-    }*/
     armGoalPub_.publish(msg);
 
     // PUBLISH TORSO GOAL
