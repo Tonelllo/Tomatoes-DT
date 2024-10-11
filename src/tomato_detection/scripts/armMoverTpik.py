@@ -601,7 +601,7 @@ def pickTomato():
                 rospy.loginfo("Planning pick for tomato [%d]", tomato_id)
                 print(bcolors.WARNING + "Plan pick" + bcolors.ENDC)
             gposes = generate_grasp_poses(goal_pose, TARGET_OFFSET)
-            gpose1 = gposes[int(len(gposes)/2.0)]
+            gpose1 = gposes[int(len(poses)/2.0)]
             motionStatus, timeElapsedTPIK = MoveCartesian(gpose1, 4, taskDataCopy.idMotion, taskDataCopy.ctrl_state, timeElapsedTPIK, 1000000)
             if (motionStatus == MotionState.MOTION_FINISHED):
                 print(bcolors.OKGREEN + "Plan pick OK" + bcolors.ENDC)
@@ -846,13 +846,13 @@ def TestTPIKServiceJoint():
         print("Service call failed: %s"%e)
 
 
-controllerType = ControllerType.TPIK
+controllerType = ControllerType.TPIK_TEST
 
 if controllerType == ControllerType.TPIK_TEST:
     #TestTPIKServiceCart()
-    #TestTPIKServiceJoint()
+    TestTPIKServiceJoint()
     #TestEachJoint(1)
-    SendStop()
+    #SendStop()
 elif controllerType == ControllerType.TPIK:
 
     rospy.init_node("positionReacher")

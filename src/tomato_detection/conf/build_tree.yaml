@@ -91,18 +91,7 @@ joint_parameters_left:
       y: 0.0
       z: 0.0
 
-robot_separation_plane: # y = -dRob/2.0 where dRob is the y distance between robots
-  a: 0.0
-  b: 1.0
-  c: 0.0
-  d: 0.17
-
-bkg_plane: # x = dAppl where dAppl is the x distance between robot and orchard
-  a: 1.0
-  b: 0.0
-  c: 0.0
-  d: -0.60
-
+#Generic plane equation is ax+by+cz=d
 ground_plane: # z = 0; to have z = a, put d: -a
   a: 0.0
   b: 0.0

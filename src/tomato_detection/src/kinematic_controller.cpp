@@ -219,42 +219,33 @@ bool KinematicController::Initialization()
     // SELF COLLISION AVOIDANCE
     std::string jointBaseID = armModel_->ID() + rml::FrameID::Joint + std::to_string(0);
     armModel_->TransformationMatrix(jointBaseID);
-    std::cerr << "[KCL::Initialization] armModel_->TransformationMatrix(jointBaseID) = " << armModel_->TransformationMatrix(jointBaseID) << std::endl;
+    //std::cerr << "[KCL::Initialization] armModel_->TransformationMatrix(jointBaseID) = " << armModel_->TransformationMatrix(jointBaseID) << std::endl;
     /*rml::PlaneParameters avoidancePlaneParams;
     avoidancePlaneParams.C = -1.0;
     avoidancePlaneParams.D = 0.15;
     ikcl::PlaneObstacle avoidancePlane(avoidancePlaneParams, jointBaseID);*/
-
-    rml::PlaneParameters separatingPlaneParams;
-    nh_->getParam("/robot_separation_plane/a", separatingPlaneParams.A);
-    nh_->getParam("/robot_separation_plane/b", separatingPlaneParams.B);
-    nh_->getParam("/robot_separation_plane/c", separatingPlaneParams.C);
-    nh_->getParam("/robot_separation_plane/d", separatingPlaneParams.D);
-    ikcl::PlaneObstacle separatingPlane(separatingPlaneParams, appleRobot::ID::RobotModel::AppleRobotBody);
 
     rml::PlaneParameters groundPlaneParams;
     nh_->getParam("/ground_plane/a", groundPlaneParams.A);
     nh_->getParam("/ground_plane/b", groundPlaneParams.B);
     nh_->getParam("/ground_plane/c", groundPlaneParams.C);
     nh_->getParam("/ground_plane/d", groundPlaneParams.D);
-    ikcl::PlaneObstacle groundPlane(groundPlaneParams, appleRobot::ID::RobotModel::AppleRobotBody);
+    ikcl::PlaneObstacle groundPlane(groundPlaneParams, rml::FrameID::WorldFrame);
+    
+    Eigen::TransformationMatrix worldF_T_testSphere;
+    worldF_T_testSphere.TranslationVector(Eigen::Vector3d(1.5,0,0.8));
+    ikcl::SphereObstacle testSphere(worldF_T_testSphere, rml::FrameID::WorldFrame, 0.5);
 
-    /*rml::PlaneParameters backgroundPlaneParams;
-    nh_->getParam("/bkg_plane/a", backgroundPlaneParams.A);
-    nh_->getParam("/bkg_plane/b", backgroundPlaneParams.B);
-    nh_->getParam("/bkg_plane/c", backgroundPlaneParams.C);
-    nh_->getParam("/bkg_plane/d", backgroundPlaneParams.D);
-    ikcl::PlaneObstacle backgroundPlane(backgroundPlaneParams, appleRobot::ID::RobotModel::AppleRobotBody);*/
-
-    std::vector<std::string> framesID;
-    framesID.push_back( robotInfo_->toolID);
+    std::vector<std::string> framesID; 
+    framesID.push_back(robotInfo_->toolID);
     //framesID.push_back( robotInfo_->toolID);
     std::vector<std::shared_ptr<ikcl::Obstacle>> obstacles;
-    obstacles.push_back(std::make_shared<ikcl::PlaneObstacle>(separatingPlane));
-    //obstacles.push_back(std::make_shared<ikcl::PlaneObstacle>(backgroundPlane));
-    obstacles.push_back(std::make_shared<ikcl::PlaneObstacle>(groundPlane));
+   // obstacles.push_back(std::make_shared<ikcl::PlaneObstacle>(groundPlane));
+    //obstacles.push_back(std::make_shared<ikcl::SphereObstacle>(testSphere));
+    std::cerr << tc::greenL << "[KinematicCtrler] obstacles size = " << obstacles.size() << std::endl;
 
     try {
+        std::cerr << tc::greenL << "[KinematicCtrler] obstacles size = " << obstacles.size() << std::endl;
         std::shared_ptr<ikcl::ObstacleAvoidance> avoidanceTask
             = std::make_shared<ikcl::ObstacleAvoidance>(appleRobot::ID::Tasks::ObstacleAvoidance, robotModel_, framesID, obstacles);
         taskInfo.task = avoidanceTask;
