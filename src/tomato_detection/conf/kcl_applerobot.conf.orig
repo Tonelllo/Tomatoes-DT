@@ -1,19 +1,27 @@
-loopRate = 100.0;           # Hz
+loopRate = 50.0;           # Hz
 
+<<<<<<< HEAD
 linearErrorThreshold = 0.01; #0.01;       # m
 angularErrorThreshold = 0.01; #0.1;     # rad
 
-cartesianMoveTimeout = 40.0;   #sec
+cartesianMoveTimeout = 280.0;   #sec
+#saturationMax = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
+#saturationMin = [-0.6, -0.6, -0.6, -0.6, -0.6, -0.6, -0.6, -0.6];
+saturationMax = [0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4];
+saturationMin = [-0.4, -0.4, -0.4, -0.4, -0.4, -0.4, -0.4, -0.4];
+positionGainJoints = 1.0
+=======
+linearErrorThreshold = 0.05; #0.01;       # m
+angularErrorThreshold = 0.01; #0.1;     # rad
+
+cartesianMoveTimeout = 20.0;   #sec
 #saturationMax = [0.4, 0.4, 0.4, 0.4, 0.4, 0.4];
 #saturationMin = [-0.4, -0.4, -0.4, -0.4, -0.4, -0.4];
-#saturationMax = [0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4];
-#saturationMin = [-0.4, -0.4, -0.4, -0.4, -0.4, -0.4, -0.4, -0.4];
-#saturationMax = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
-#saturationMin = [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0];
-saturationMax = [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0];
-saturationMin = [-10.0, -10.0, -10.0, -10.0, -10.0, -10.0, -10.0, -10.0];
-positionGainJoints = 1.0
-positionGainCart = 1.0
+saturationMax = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
+saturationMin = [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0];
+positionGainJoints = 20.0
+>>>>>>> controller_tpik_EXP
+positionGainCart = 5.0
 
 states: {
 
@@ -60,20 +68,20 @@ tasks: {
         type = 1;     # 0 equality, 1 inequality
         gain = 0.02;
         enable = true;
-        saturation = 0.5;
+        saturation = 0.05;
         #saturateRaferenceRateComponentWise = true; #if you want this option active, you have to explicitly add this field,
                                                     # otherwise do not enter the param in the task
-        activationStartDistanceGreaterThanParams = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5];
-        activationStartDistanceLessThanParams = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5];
-        activationIntervaLengthGreaterThanParams = [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2];
-        activationIntervaLengthLessThanParams = [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2];
+        activationStartDistanceGreaterThanParams = [0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05];
+        activationStartDistanceLessThanParams = [0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05];
+        activationIntervaLengthGreaterThanParams = [0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02];
+        activationIntervaLengthLessThanParams = [0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02];
     }
     
     ObstacleAvoidance: {
         type = 1;     # 0 equality, 1 inequality
-        gain = 0.5;
+        gain = 0.05;
         enable = true;
-        saturation = 0.5;
+        saturation = 0.05;
         greaterThanParams: {
             xmin = [0.0,0.00];
             xmax = [0.05,0.05];
@@ -83,38 +91,43 @@ tasks: {
     
     JointsPosition: {
         type = 0;     # 0 equality, 1 inequality
-        gain = 16.0;
+<<<<<<< HEAD
+        gain = 1.0
         enable = true;
-        #saturation = 1.0;
-        saturation = 10.0;
+        saturation = 0.4;
+=======
+        gain = 4.0;
+        enable = true;
+        saturation = 1.0;
+>>>>>>> controller_tpik_EXP
     }
     
     
     JointsVelocity: {
         type = 0;     # 0 equality, 1 inequality
-        gain = 0.1; # MODIFIED --> 1.0 before
+        gain = 0.1;
         enable = true;
-        saturation = 0.2;
+        saturation = 0.02;
     }
     
     
     ToolCartesianDistance: {
         type = 0;     # 0 equality, 1 inequality
-        gain = 30.0;
+        gain = 0.05;
         enable = true;
-        saturation = 10.0; 
+        saturation = 0.6; 
         #saturateRaferenceRateComponentWise = true; #if you want this option active, you have to explicitly add this field, otherwise do not enter the param in the task
         useVirtualFrame = false; 
         virtualFrameType = 2;  #0: FullPose, 1: Angular, 2:Linear
         virtualFrameGain= [0.15,0.15];
         virtualFrameSampleTime = 0.1;
         onTrackAllowedDistance = [4.0, 4.5];
-        crossTrackAllowedDistance = [0.5, 1.0];
+        crossTrackAllowedDistance = [0.05, 1.0];
     }
      
     ToolCartesianOrientation: {
         type = 0;     # 0 equality, 1 inequality
-        gain = 30.0;
+        gain = 0.4;
         enable = true;
         saturation = 10.0;
         #saturateRaferenceRateComponentWise = true; #if you want this option active, you have to explicitly add this field, otherwise do not enter the param in the task
@@ -123,7 +136,7 @@ tasks: {
         virtualFrameGain= [0.15,0.15];
         virtualFrameSampleTime = 0.1;
         onTrackAllowedDistance = [4.0, 4.5];
-        crossTrackAllowedDistance = [0.5, 1.0];
+        crossTrackAllowedDistance = [0.05, 1.0];
     }
     
 
@@ -141,7 +154,7 @@ priorityLevels: (
 
     { name: "PL_MoveJointsPosition";
         tasks: ["JointsPosition"];
-        lambda = 0.1;
+        lambda = 1.0;
         threshold = 0.01;
     },
         
@@ -152,8 +165,7 @@ priorityLevels: (
     },
         
     { name: "PL_MoveTool";
-        #tasks: ["ToolCartesianDistance","ToolCartesianOrientation"];
-        tasks: ["ToolCartesianDistance"];
+        tasks: ["ToolCartesianDistance","ToolCartesianOrientation"];
         lambda = 0.0001;
         threshold = 0.01;
     }
@@ -171,7 +183,13 @@ actions: (
     },
        
     {  name: "MoveJointsPosition";
+<<<<<<< HEAD
+        #levels: ["PL_Safety", "PL_MoveJointsPosition"];
+        levels: [ "PL_MoveJointsPosition"];
+=======
         levels: ["PL_Safety", "PL_MoveJointsPosition"];
+        #levels: ["PL_MoveJointsPosition"];
+>>>>>>> controller_tpik_EXP
     },
        
     {  name: "MoveJointsVelocity";
