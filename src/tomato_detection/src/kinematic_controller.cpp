@@ -12,18 +12,31 @@
 
 using std::placeholders::_1;
 
-// Suppress annoying clang warning
 template<> ros::Duration ros::TimeBase<ros::Time, ros::Duration>::operator-(const ros::Time &rhs) const;
 
-void KinematicController::OctreeCallback(const moveit_msgs::PlanningScene::ConstPtr& msg){
-//void KinematicController::OctreeCallback(const octomap_msgs::Octomap& msg){
-    /*octree_ = new octomap::OcTree(msg.resolution);    
+std::vector<Eigen::Vector3d> octreeToPointCloud(octomap::OcTree& tree) {
+    std::vector<Eigen::Vector3d> pointCloud;  // Vector to store points
+
+    unsigned int octree_depth_;
+    auto treeDepth = sizeof(unsigned short) * 8;
+    auto end = tree.end();
+    for (auto it = tree.begin(treeDepth); it != end; ++it) {
+        if (tree.isNodeOccupied(*it)) pointCloud.push_back(Eigen::Vector3d(it.getX(), it.getY(), it.getZ()));
+    }
+
+    return pointCloud;
+}
+
+void KinematicController::OctreeCallback(const moveit_msgs::PlanningScene::ConstPtr& msga){
+    auto msg = msga->world.octomap.octomap;
+    obstacleRes_ = msg.resolution;
+    octree_ = new octomap::OcTree(obstacleRes_);    
     std::stringstream datastream;
     if (msg.data.size() > 0){
         datastream.write((const char*) &msg.data[0], msg.data.size());
-        octree_->readBinaryData(datastream);
-    }*/
-   std::cerr << "[Octree callback] res = " << msg->world.octomap.octomap.resolution << std::endl;
+        octree_->readData(datastream);
+    }
+    obstacleCentroids_ = octreeToPointCloud(*octree_);
 } 
 
 KinematicController::KinematicController(std::shared_ptr<ros::NodeHandle> nodeHandle, const std::string &conf_filename, bool isSim,
@@ -254,7 +267,7 @@ bool KinematicController::Initialization()
     //framesID.push_back( robotInfo_->toolID);
     std::vector<std::shared_ptr<ikcl::Obstacle>> obstacles;
    // obstacles.push_back(std::make_shared<ikcl::PlaneObstacle>(groundPlane));
-    //obstacles.push_back(std::make_shared<ikcl::SphereObstacle>(testSphere));
+    obstacles.push_back(std::make_shared<ikcl::SphereObstacle>(testSphere));
     std::cerr << tc::greenL << "[KinematicCtrler] obstacles size = " << obstacles.size() << std::endl;
 
     try {
@@ -529,8 +542,26 @@ void KinematicController::Run()
                     taskMap.second.task->Update();
                     //std::cerr << "[KCL::Run] Update task map!" << std::endl;
                 } catch (tpik::ExceptionWithHow& e) {
+                    std::cerr << "task is "<< taskMap.second.task->ID() << std::endl;
                     std::cerr << tc::redL << "[UPDATE TASK EXCEPTION]" << tc:: none << std::endl;
                     std::cerr << "what: " << e.what() << ", how: " << e.how() << std::endl;
+                }
+            }
+
+            std::vector<std::shared_ptr<ikcl::Obstacle>> obstacles;
+            for (auto cntr : obstacleCentroids_) {
+                Eigen::TransformationMatrix worldF_T_sphere;
+                worldF_T_sphere.TranslationVector(cntr);
+                ikcl::SphereObstacle obstacleSphere(worldF_T_sphere, rml::FrameID::WorldFrame, obstacleRes_/2.0);
+                obstacles.push_back(std::make_shared<ikcl::SphereObstacle>(obstacleSphere));
+            }
+            if (tasksMap_.find(appleRobot::ID::Tasks::ObstacleAvoidance) != tasksMap_.end()) {
+                auto task = tasksMap_[appleRobot::ID::Tasks::ObstacleAvoidance].task;
+                std::shared_ptr<ikcl::ObstacleAvoidance> obstacleAvoidanceTask = std::dynamic_pointer_cast<ikcl::ObstacleAvoidance>(task);
+
+                if (obstacleAvoidanceTask != nullptr) {
+                    obstacleAvoidanceTask->Obstacles({}) ;
+                    tasksMap_[appleRobot::ID::Tasks::ObstacleAvoidance].task = obstacleAvoidanceTask;
                 }
             }
 

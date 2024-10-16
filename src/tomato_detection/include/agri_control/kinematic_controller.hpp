@@ -56,6 +56,8 @@
 #include <moveit_msgs/PlanningScene.h>
 
 class KinematicController {
+    std::vector<Eigen::Vector3d> obstacleCentroids_;
+    double obstacleRes_;
     octomap::OcTree *octree_;
 
     std::shared_ptr<ros::NodeHandle> nh_;
