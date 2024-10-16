@@ -8,11 +8,23 @@
 
 #include <std_msgs/Float64MultiArray.h>
 
+#include <sstream>                         // For std::stringstream
+
 using std::placeholders::_1;
 
 // Suppress annoying clang warning
 template<> ros::Duration ros::TimeBase<ros::Time, ros::Duration>::operator-(const ros::Time &rhs) const;
 
+void KinematicController::OctreeCallback(const moveit_msgs::PlanningScene::ConstPtr& msg){
+//void KinematicController::OctreeCallback(const octomap_msgs::Octomap& msg){
+    /*octree_ = new octomap::OcTree(msg.resolution);    
+    std::stringstream datastream;
+    if (msg.data.size() > 0){
+        datastream.write((const char*) &msg.data[0], msg.data.size());
+        octree_->readBinaryData(datastream);
+    }*/
+   std::cerr << "[Octree callback] res = " << msg->world.octomap.octomap.resolution << std::endl;
+} 
 
 KinematicController::KinematicController(std::shared_ptr<ros::NodeHandle> nodeHandle, const std::string &conf_filename, bool isSim,
         std::string prefix)
@@ -42,6 +54,7 @@ KinematicController::KinematicController(std::shared_ptr<ros::NodeHandle> nodeHa
     SetUpFSM();
 
     stateDataSub_ = nh_->subscribe<sensor_msgs::JointState>("/joint_states", 10, &KinematicController::StateDataCB, this);
+    octreeSub_ = nh_->subscribe<moveit_msgs::PlanningScene>("/move_group/monitored_planning_scene", 10, &KinematicController::OctreeCallback, this);
 
     ctrlDataPub_ = nh_->advertise<tomato_detection::ControlData>(prefix + appleRobot::topicnames::ctrl_data, 10);
     tpikActionPub_ = nh_->advertise<tomato_detection::TPIKAction>(prefix + appleRobot::topicnames::tpik_action, 10);
@@ -234,7 +247,7 @@ bool KinematicController::Initialization()
     
     Eigen::TransformationMatrix worldF_T_testSphere;
     worldF_T_testSphere.TranslationVector(Eigen::Vector3d(1.5,0,0.8));
-    ikcl::SphereObstacle testSphere(worldF_T_testSphere, rml::FrameID::WorldFrame, 0.5);
+    ikcl::SphereObstacle testSphere(worldF_T_testSphere, rml::FrameID::WorldFrame, 20.0);
 
     std::vector<std::string> framesID; 
     framesID.push_back(robotInfo_->toolID);
@@ -331,7 +344,7 @@ bool KinematicController::LoadConfiguration()
         std::cerr << "Failed to load Tasks from file" << std::endl;
         return false;
     };
-    std::cout << tc::green << "[KCL] Tasks configured." << tc::none << std::endl;
+    std::cout << tc::redL << "[KCL] Tasks configured." << tc::none << std::endl;
 
     if (!ConfigurePriorityLevelsFromFile(actionManager_, tasksMap_, confObj)) {
         std::cerr << "Failed to load Priority Levels from file" << std::endl;

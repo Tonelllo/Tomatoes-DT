@@ -846,7 +846,7 @@ def TestTPIKServiceJoint():
         print("Service call failed: %s"%e)
 
 
-controllerType = ControllerType.TPIK_TEST
+controllerType = ControllerType.TPIK
 
 if controllerType == ControllerType.TPIK_TEST:
     #TestTPIKServiceCart()

@@ -23,6 +23,8 @@ find_package(catkin REQUIRED COMPONENTS
     pcl_ros
     cv_bridge
     tf_conversions
+    octomap_msgs
+    moveit_msgs
 )
 
 
@@ -43,6 +45,7 @@ add_message_files(
 
 ## System dependencies are found with CMake's conventions
 find_package(Boost REQUIRED COMPONENTS system)
+find_package(octomap REQUIRED COMPONENTS system)
 
 
 ## Uncomment this if the package has a setup.py. This macro ensures
@@ -103,6 +106,8 @@ generate_messages(
   DEPENDENCIES
   std_msgs  # Or other packages containing msgs
   geometry_msgs
+  octomap_msgs
+  moveit_msgs
 )
 
 ################################################
@@ -139,7 +144,7 @@ catkin_package(
  # INCLUDE_DIRS include
 #  LIBRARIES tomato_detection
  DEPENDS EIGEN3
- CATKIN_DEPENDS message_runtime std_msgs
+ CATKIN_DEPENDS message_runtime std_msgs moveit_msgs
 )
 
 ###########
@@ -195,7 +200,7 @@ add_executable(agri_kinematic_controller src/kinematic_controller_node.cpp src/c
   src/commands/command_park.cpp src/commands/command_stop.cpp src/commands/command_unpark.cpp
   src/commands/generic_command.cpp
   src/states/generic_state.cpp)
-target_link_libraries(agri_kinematic_controller ${catkin_LIBRARIES} rml ikcl ctrl_toolbox fsm tpik config++ )
+target_link_libraries(agri_kinematic_controller ${catkin_LIBRARIES} rml ikcl ctrl_toolbox fsm tpik config++ octomap)
 
 #############
 ## Install ##

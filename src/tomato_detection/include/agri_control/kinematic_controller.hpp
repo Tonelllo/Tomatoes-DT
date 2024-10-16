@@ -8,6 +8,7 @@
 #include <tf/transform_broadcaster.h>
 
 #include "std_msgs/Empty.h"
+#include "octomap_msgs/Octomap.h"
 
 #include "futils.hpp"
 #include "apple_robot_defines.hpp"
@@ -50,7 +51,12 @@
 
 #include <control_msgs/FollowJointTrajectoryActionGoal.h>
 
+#include <octomap_msgs/Octomap.h>          // For octomap_msgs::Octomap
+#include <octomap/octomap.h>  // OctoMap
+#include <moveit_msgs/PlanningScene.h>
+
 class KinematicController {
+    octomap::OcTree *octree_;
 
     std::shared_ptr<ros::NodeHandle> nh_;
     std::shared_ptr<KCLConfiguration> conf_;
@@ -59,6 +65,7 @@ class KinematicController {
     ros::Timer slow_timer_;
 
     ros::Subscriber stateDataSub_;
+    ros::Subscriber octreeSub_;
 
     ros::Publisher ctrlDataPub_;
     ros::Publisher tpikActionPub_;
@@ -162,6 +169,7 @@ class KinematicController {
 public:
     KinematicController(std::shared_ptr<ros::NodeHandle> nodeHandle, const std::string &conf_filename,
         bool simulatedDriver, std::string prefix);
+    void OctreeCallback(const moveit_msgs::PlanningScene::ConstPtr& msg);
 
     void Run();
 };

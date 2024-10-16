@@ -533,7 +533,6 @@ def pickTomato():
                 next_tomato = None
             else:
                 state = States.PLAN_APPROACH
-    ``
         elif state == States.PLAN_APPROACH:
             old_state = state
             rospy.loginfo("Planning approach for tomato [%d]", tomato_id)
