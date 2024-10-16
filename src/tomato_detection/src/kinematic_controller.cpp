@@ -537,6 +537,24 @@ void KinematicController::Run()
 
         if (uFsm_.GetCurrentStateName() != appleRobot::ID::states::disabled) {
 
+            std::vector<std::shared_ptr<ikcl::Obstacle>> obstacles;
+            for (auto cntr : obstacleCentroids_) {
+                Eigen::TransformationMatrix worldF_T_sphere;
+                worldF_T_sphere.TranslationVector(cntr);
+                ikcl::SphereObstacle obstacleSphere(worldF_T_sphere, rml::FrameID::WorldFrame, obstacleRes_/2.0);
+                obstacles.push_back(std::make_shared<ikcl::SphereObstacle>(obstacleSphere));
+                if (obstacles.size() > 25) break;
+            }
+            if (tasksMap_.find(appleRobot::ID::Tasks::ObstacleAvoidance) != tasksMap_.end()) {
+                auto task = tasksMap_[appleRobot::ID::Tasks::ObstacleAvoidance].task;
+                std::shared_ptr<ikcl::ObstacleAvoidance> obstacleAvoidanceTask = std::dynamic_pointer_cast<ikcl::ObstacleAvoidance>(task);
+
+                if (obstacleAvoidanceTask != nullptr) {
+                    obstacleAvoidanceTask->Obstacles(obstacles) ;
+                    tasksMap_[appleRobot::ID::Tasks::ObstacleAvoidance].task = obstacleAvoidanceTask;
+                }
+            }
+
             for (auto& taskMap : tasksMap_) {
                 try {
                     taskMap.second.task->Update();
@@ -545,23 +563,6 @@ void KinematicController::Run()
                     std::cerr << "task is "<< taskMap.second.task->ID() << std::endl;
                     std::cerr << tc::redL << "[UPDATE TASK EXCEPTION]" << tc:: none << std::endl;
                     std::cerr << "what: " << e.what() << ", how: " << e.how() << std::endl;
-                }
-            }
-
-            std::vector<std::shared_ptr<ikcl::Obstacle>> obstacles;
-            for (auto cntr : obstacleCentroids_) {
-                Eigen::TransformationMatrix worldF_T_sphere;
-                worldF_T_sphere.TranslationVector(cntr);
-                ikcl::SphereObstacle obstacleSphere(worldF_T_sphere, rml::FrameID::WorldFrame, obstacleRes_/2.0);
-                obstacles.push_back(std::make_shared<ikcl::SphereObstacle>(obstacleSphere));
-            }
-            if (tasksMap_.find(appleRobot::ID::Tasks::ObstacleAvoidance) != tasksMap_.end()) {
-                auto task = tasksMap_[appleRobot::ID::Tasks::ObstacleAvoidance].task;
-                std::shared_ptr<ikcl::ObstacleAvoidance> obstacleAvoidanceTask = std::dynamic_pointer_cast<ikcl::ObstacleAvoidance>(task);
-
-                if (obstacleAvoidanceTask != nullptr) {
-                    obstacleAvoidanceTask->Obstacles({}) ;
-                    tasksMap_[appleRobot::ID::Tasks::ObstacleAvoidance].task = obstacleAvoidanceTask;
                 }
             }
 
