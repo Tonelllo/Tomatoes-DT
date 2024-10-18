@@ -267,7 +267,7 @@ bool KinematicController::Initialization()
     //framesID.push_back( robotInfo_->toolID);
     std::vector<std::shared_ptr<ikcl::Obstacle>> obstacles;
    // obstacles.push_back(std::make_shared<ikcl::PlaneObstacle>(groundPlane));
-    obstacles.push_back(std::make_shared<ikcl::SphereObstacle>(testSphere));
+   // obstacles.push_back(std::make_shared<ikcl::SphereObstacle>(testSphere));
     std::cerr << tc::greenL << "[KinematicCtrler] obstacles size = " << obstacles.size() << std::endl;
 
     try {
@@ -537,13 +537,17 @@ void KinematicController::Run()
 
         if (uFsm_.GetCurrentStateName() != appleRobot::ID::states::disabled) {
 
+            auto worldF_tool = robotModel_->TransformationMatrix(robotInfo_->toolID).TranslationVector();
+
             std::vector<std::shared_ptr<ikcl::Obstacle>> obstacles;
             for (auto cntr : obstacleCentroids_) {
-                Eigen::TransformationMatrix worldF_T_sphere;
-                worldF_T_sphere.TranslationVector(cntr);
-                ikcl::SphereObstacle obstacleSphere(worldF_T_sphere, rml::FrameID::WorldFrame, obstacleRes_/2.0);
-                obstacles.push_back(std::make_shared<ikcl::SphereObstacle>(obstacleSphere));
-                if (obstacles.size() > 25) break;
+                if ((cntr - worldF_tool).norm() < 0.5) {
+                    Eigen::TransformationMatrix worldF_T_sphere;
+                    worldF_T_sphere.TranslationVector(cntr);
+                    ikcl::SphereObstacle obstacleSphere(worldF_T_sphere, rml::FrameID::WorldFrame, obstacleRes_/2.0);
+                    obstacles.push_back(std::make_shared<ikcl::SphereObstacle>(obstacleSphere));
+                   // if (obstacles.size() > 5) break;
+                }
             }
             if (tasksMap_.find(appleRobot::ID::Tasks::ObstacleAvoidance) != tasksMap_.end()) {
                 auto task = tasksMap_[appleRobot::ID::Tasks::ObstacleAvoidance].task;

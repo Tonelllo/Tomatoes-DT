@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <launch>
-   <node name="agri_kinematic_controller" pkg="tomato_detection" type="agri_kinematic_controller" output="screen" />
+   <node name="agri_kinematic_controller" pkg="tomato_detection" type="agri_kinematic_controller" output="screen" launch-prefix="gdb --args"/>
    <rosparam command="load" file="$(find tomato_detection)/conf/build_tree.yaml" />
 </launch>

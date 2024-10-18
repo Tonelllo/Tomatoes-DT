@@ -1,10 +1,18 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(tomato_detection)
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_STANDARD 17)
+add_compile_options(-std=c++17)
+
+set(CMAKE_CONFIGURATION_TYPES "RelWithDebInfo" CACHE STRING "" FORCE)
+
+option(BUILD_TESTS "Compile tests" ON)
+option(BUILD_TESTS_DEVEL "Compile tests devel branch" ON)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-pg)
+set(catkin_LIBRARIES ${PCL_LIBRARIES} ${catkin_LIBRARIES} -pg)
+SET(GCC_COVERAGE_LINK_FLAGS    "-lstdc++fs")
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)

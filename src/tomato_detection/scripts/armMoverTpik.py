@@ -23,6 +23,7 @@ from tomato_detection.srv import BestPos
 from threading import Lock
 from tomato_detection.srv import LatestTomatoPositions
 from tomato_detection.msg import ControlData
+from tomato_detection.msg import state_info
 
 GROUP_NAME = "arm_torso"
 TARGET_OFFSET = 0.21
@@ -672,6 +673,11 @@ def pickTomato():
             time.sleep(3)
             print(bcolors.OKGREEN + "Plan release OK" + bcolors.ENDC)
             state = States.HOME
+        currStateInfo = state_info()
+        currStateInfo: state_info
+        currStateInfo.header.stamp = rospy.Time.now()
+        currStateInfo.current_state = str(state)
+        state_pub.publish(currStateInfo)
         rospy.sleep(0.05)
 
 processed_tomatoes = []
@@ -868,6 +874,7 @@ elif controllerType == ControllerType.TPIK:
     print("[TPIK] point ok")
 
     marker_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=2)
+    state_pub = rospy.Publisher("/state_info", state_info, queue_size=2)
     gripper_pub = rospy.Publisher(
         "/parallel_gripper_controller/command", JointTrajectory, queue_size=2)
     print("[TPIK] marker, gripper pub ok")
