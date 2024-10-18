@@ -18,7 +18,7 @@ Description:
 bridge = CvBridge()
 rospack = rospkg.RosPack()
 node_path = rospack.get_path("tomato_detection") + "/models/"
-model = YOLO(node_path + "yolov10_80p_70r.pt")
+model = YOLO(node_path + "yolov10m_86p_86r.pt")
 pub = rospy.Publisher("tomato_detection/detected_tomatoes",
                       PoseArray, queue_size=5)
 imgPublisher = rospy.Publisher(

@@ -221,8 +221,8 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg)
       ROS_ERROR("Wrong image encoding for depth data");
     }
 
-    cv::circle(f32image, cv::Point(x, y), 15, cv::Scalar(0, 0, 0), 3);
-    cv::circle(f32image, cv::Point(x, y), 5, cv::Scalar(255, 255, 255), 3);
+    /*cv::circle(f32image, cv::Point(x, y), 15, cv::Scalar(0, 0, 0), 3);*/
+    /*cv::circle(f32image, cv::Point(x, y), 5, cv::Scalar(255, 255, 255), 3);*/
     float depth = f32image.at<float>(y, x);  // NOTE Row, Col
 
     // Diameter
@@ -239,8 +239,8 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg)
     position.position.z = bodyFixedPoint.z();
     positions.poses.push_back(position);
   }
-  cv::imshow("cane", f32image);
-  cv::waitKey(100);
+  /*cv::imshow("cane", f32image);*/
+  /*cv::waitKey(100);*/
   poseMutex.lock();
   m_latest_positions = positions;
   poseMutex.unlock();

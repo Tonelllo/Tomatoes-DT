@@ -27,7 +27,7 @@ import threading
 
 GROUP_NAME = "arm_torso"
 TARGET_OFFSET = 0.21
-APPROACH_OFFSET = 0.30
+APPROACH_OFFSET = 0.33
 AVOID_COLLISION_SPHERE_RAIDUS = 0.07
 EFFORT = 0.3
 CARTESIAN_FAILURE_THRESHOLD = 0.7
@@ -35,6 +35,10 @@ OPEN_GRIPPER_POS = 0.044
 CLOSE_GRIPPER_POS = 0.001
 DISTANCE_THRESHOLD = 0.05
 PLANNING_TIMEOUT = 1.0
+PLAN_HOME_TIMEOUT = 5.0
+FIRST_ITER_PLANNING_TIMEOUT = 1.0
+PLAN_HOME_PLANNER = "RRTstarkConfigDefault"
+NORMAL_PLANER = "RRTConnectkConfigDefault"
 BASKET_JOINT_POSITION = [0.10, 1.47, 0.16, 0.0, 2.22, -1.9, -0.48, -1.39]
 ARM_TORSO = ["torso_lift_joint", "arm_1_joint", "arm_2_joint",
              "arm_3_joint", "arm_4_joint", "arm_5_joint", "arm_6_joint", "arm_7_joint"]
@@ -201,7 +205,6 @@ def removeSphere():
     acm.entry_values.pop()
     diff_scene.allowed_collision_matrix = acm
     scene.apply_planning_scene(diff_scene)
-    rospy.sleep(2)
 
 
 def normalize(v):
@@ -475,21 +478,28 @@ def worker():
             disableCollisionsAtTarget(goal_pose, AVOID_COLLISION_SPHERE_RAIDUS)
             lookAtTomato(goal_pose)
         elif state_name == "grab":
+            print("Starting execution:", state_name)
             resetHead()
             closeGripper()
+            print("Finished execution:", state_name)
             continue
         elif state_name == "release":
+            print("Starting execution:", state_name)
             future_plans_num -= 1
             removeSphere()
+            print("Removed sphere")
             openGripper()
             tomato_poses_mutex.acquire()
             tomato_poses = getTomatoPoses()
             tomato_poses_mutex.release()
+            print("Finished execution:", state_name)
             continue
         else:
             next_traj = data
         # next_traj.joint_trajectory.header.stamp = rospy.Time.now() + rospy.Duration(0.001)
+        print("Starting execution:", state_name)
         success = move_group.execute(next_traj, wait=True)
+        print("Finished execution:", state_name)
         if not success:
             recoverExecutionError()
             future_plans_num -= 1
@@ -498,7 +508,6 @@ def worker():
                 (trash_state, data) = future_plans.get(block=True)
                 print("Removed state")
 
-        print("Executing")
 
 
 def pickTomato():
@@ -533,7 +542,6 @@ def pickTomato():
             move_group.set_joint_value_target(BASKET_JOINT_POSITION)
             move_group.set_planning_time(3.0)
             suc = move_group.go(wait=True)
-            print("post2")
             move_group.set_planning_time(PLANNING_TIMEOUT)
             HOME_STATE = move_group.get_current_state()
             latest_planned_state = HOME_STATE
@@ -567,6 +575,7 @@ def pickTomato():
             next_tomato = planNextApproach(
                 goal_pose, AVOID_COLLISION_SPHERE_RAIDUS, first_iteration=first_iter, home_state=HOME_STATE)
             first_iter = False
+
             if next_tomato is False:
                 continue
             (success, traj, time, error, gpos, ppos, idx) = next_tomato
@@ -643,13 +652,6 @@ def pickTomato():
                 back_plan = False
 
             state = States.PLAN_HOME
-            # Here in any case you go back home
-            # if success and frac >= CARTESIAN_FAILURE_THRESHOLD:
-            #     rospy.loginfo("Planning back SUCCESS")
-            #     state = States.EXECUTING_MOVEMENT
-            # else:
-            #     rospy.logwarn("Planning back FAIL")
-            #     state = States.PLAN_HOME
 
         elif state == States.PLAN_HOME:
             # resetHead()
@@ -657,9 +659,10 @@ def pickTomato():
             planning_mutex.acquire()
             move_group.set_start_state(latest_planned_state)
             move_group.set_joint_value_target(BASKET_JOINT_POSITION)
-            # move_group.set_goal_joint_tolerance(0.1)
-            move_group.set_planning_time(3.0)
+            move_group.set_planning_time(PLAN_HOME_TIMEOUT)
+            move_group.set_planner_id(PLAN_HOME_PLANNER)
             next_tomato = move_group.plan()
+            move_group.set_planner_id(NORMAL_PLANER)
             (s, t, tt, e) = next_tomato
             if back_plan is not False:
                 (state, traj) = back_plan
@@ -774,11 +777,21 @@ rospy.init_node("positionReacher")
 scene = moveit_commander.PlanningSceneInterface()
 move_group = moveit_commander.MoveGroupCommander(GROUP_NAME)
 
-# move_group.set_planner_id("RRTstarkConfigDefault")
-move_group.set_planner_id("PRMstarPersistent")
-move_group.set_planning_time(PLANNING_TIMEOUT)
+# move_group.set_planner_id("PRMstarkConfigDefault") # Good trajectories, better than RRTStar in planning time (1.0)
+# move_group.set_planner_id("BKPIECEkConfigDefault") # Can lead to atrocious trajectories. Seems to always find a good trajectory. Fast in planning (1.0) 
+# move_group.set_planner_id("RRTstarkConfigDefault") # Very good trajectories. Not so fast in planning (1.5)
+# move_group.set_planner_id("RRTkConfigDefault") # Best at speed. Shitty trajectories (0.5)
+move_group.set_planner_id("RRTConnectkConfigDefault") # Best at speed. Shitty trajectories (0.5)
+                                                      # This is probably the one that we are going to use because
+                                                      # ever if the trajectories are not good it produces many of them
+                                                      # and it's easier to find one that is not soo bad between them
+# move_group.set_planner_id("SemiPersistentLazyPRMstar")
+# move_group.set_planner_id("TRRTkConfigDefault") # Good speed and trajectories but shitty in finding trajectories (1.2)
+move_group.set_planning_time(FIRST_ITER_PLANNING_TIMEOUT)
 # move_group.set_max_velocity_scaling_factor(1.0)
 # move_group.set_max_acceleration_scaling_factor(1.0)
+move_group.set_max_acceleration_scaling_factor(1)
+move_group.set_max_velocity_scaling_factor(1)
 
 getSplicedTraj = rospy.ServiceProxy(
     "/tomato_sync/getSplicedTraj", SpliceService)
