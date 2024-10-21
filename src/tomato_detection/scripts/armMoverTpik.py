@@ -118,8 +118,9 @@ def RequestJointMotion(joint_coordinates, motion_id):
     except rospy.ServiceException as e:
         print("Service call failed: %s" % e)
 
-def MoveCartesian(target_pose, motion_id, currId, current_state, time_elapsed, timeout):
+def MoveCartesian(target_pose, motion_id, currId, current_state, ok, time_elapsed, timeout):
     timeElapsedTPIK = -1
+    setMarker(target_pose, [0,1,0])
     motionStatus = MotionState.MOTION_FAILED
     if time_elapsed > timeout:
         SendStop()
@@ -130,13 +131,16 @@ def MoveCartesian(target_pose, motion_id, currId, current_state, time_elapsed, t
         motionStatus = MotionState.MOTION_REQUESTED
     elif "idle" in current_state and int(currId) == int(motion_id):
         timeElapsedTPIK = -1
-        motionStatus = MotionState.MOTION_FINISHED
+        if ok:
+            motionStatus = MotionState.MOTION_FINISHED
+        else:
+            motionStatus = MotionState.MOTION_FAILED
     else:
         timeElapsedTPIK = time_elapsed + 1
         motionStatus = MotionState.MOTION_ONGOING
     return motionStatus, timeElapsedTPIK
 
-def MoveJoints(target_joint_coordinates, motion_id, currId, current_state, time_elapsed, timeout):
+def MoveJoints(target_joint_coordinates, motion_id, currId, current_state, ok, time_elapsed, timeout):
     timeElapsedTPIK = -1
     motionStatus = MotionState.MOTION_FAILED
     if time_elapsed > timeout:
@@ -148,7 +152,10 @@ def MoveJoints(target_joint_coordinates, motion_id, currId, current_state, time_
         motionStatus = MotionState.MOTION_REQUESTED
     elif "idle" in current_state and int(currId) == int(motion_id):
         timeElapsedTPIK = -1
-        motionStatus = MotionState.MOTION_FINISHED
+        if ok:
+            motionStatus = MotionState.MOTION_FINISHED
+        else:
+            motionStatus = MotionState.MOTION_FAILED
     else:
         timeElapsedTPIK = time_elapsed + 1
         motionStatus = MotionState.MOTION_ONGOING
@@ -230,7 +237,7 @@ def addBasket():
     scene.add_box("tomato_basket", box_position, (0.20, 0.40, 0.20))
 
 
-def setMarker(pose):
+def setMarker2(pose,rgbV):
     """
     Display a marken in the rviz visualization.
 
@@ -245,10 +252,35 @@ def setMarker(pose):
     marker.scale.x = 0.1
     marker.scale.y = 0.1
     marker.scale.z = 0.1
+    
+    marker.color.r = rgbV[0]
+    marker.color.g = rgbV[1]
+    marker.color.b = rgbV[2]
+    marker.color.a = 1
 
-    marker.color.r = 1
-    marker.color.g = 0
-    marker.color.b = 0
+    marker.pose = pose
+
+    marker_pub2.publish(marker)
+
+def setMarker(pose,rgbV):
+    """
+    Display a marken in the rviz visualization.
+
+    :param Pose pose: Position of the marken in the space.
+    """
+    marker = Marker()
+    marker.header.frame_id = "base_footprint"
+    marker.header.stamp = rospy.Time.now()
+    marker.type = 2
+    marker.id = 0
+
+    marker.scale.x = 0.1
+    marker.scale.y = 0.1
+    marker.scale.z = 0.1
+    
+    marker.color.r = rgbV[0]
+    marker.color.g = rgbV[1]
+    marker.color.b = rgbV[2]
     marker.color.a = 1
 
     marker.pose = pose
@@ -559,7 +591,7 @@ def pickTomato():
             if timeElapsedTPIK < 0:
                 print(bcolors.WARNING + "Get first tomatoes" + bcolors.ENDC)
             if taskDataCopy is not None:
-                motionStatus, timeElapsedTPIK = MoveJoints(BASKET_JOINT_POSITION, 2, taskDataCopy.idMotion, taskDataCopy.ctrl_state, timeElapsedTPIK, 1000000)
+                motionStatus, timeElapsedTPIK = MoveJoints(BASKET_JOINT_POSITION, 2, taskDataCopy.idMotion, taskDataCopy.ctrl_state, taskDataCopy.jointPos_ok, timeElapsedTPIK, 1000000)
 
             if (motionStatus == MotionState.MOTION_FINISHED):
                 (poses, tomato_id, radius) = getTomatoPoses()
@@ -585,11 +617,13 @@ def pickTomato():
             if timeElapsedTPIK < 0:
                 rospy.loginfo("Planning approach for tomato [%d]", tomato_id)
                 print(bcolors.WARNING + "Plan approach" + bcolors.ENDC)
-                print(bcolors.OKBLUE + "goal pose is " + str(goal_pose) + bcolors.ENDC)
-            setMarker(goal_pose.pose) # rviz
-            poses = generate_grasp_poses(goal_pose, APPROACH_OFFSET)
-            pose1 = poses[int(len(poses)/2.0)]
-            motionStatus, timeElapsedTPIK = MoveCartesian(pose1, 3, taskDataCopy.idMotion, taskDataCopy.ctrl_state, timeElapsedTPIK, 1000000)
+                # print(bcolors.OKBLUE + "goal pose is " + str(goal_pose) + bcolors.ENDC)
+                poses = generate_grasp_poses(goal_pose, APPROACH_OFFSET)
+                pose1 = poses[int(len(poses)/2.0)]
+                print(bcolors.OKBLUE + "approach pose is " + str(pose1) + bcolors.ENDC)
+            setMarker(pose1,[0,1,0]) # rviz
+            setMarker2(goal_pose.pose,[1,0,0]) # rviz
+            motionStatus, timeElapsedTPIK = MoveCartesian(pose1, 3, taskDataCopy.idMotion, taskDataCopy.ctrl_state, taskDataCopy.cart_ok, timeElapsedTPIK, 1000000)
             if (motionStatus == MotionState.MOTION_FINISHED):
                 print(bcolors.OKGREEN + "Plan approach OK" + bcolors.ENDC)
                 state = States.PLAN_PICK
@@ -601,9 +635,13 @@ def pickTomato():
             if timeElapsedTPIK < 0:
                 rospy.loginfo("Planning pick for tomato [%d]", tomato_id)
                 print(bcolors.WARNING + "Plan pick" + bcolors.ENDC)
-            gposes = generate_grasp_poses(goal_pose, TARGET_OFFSET)
-            gpose1 = gposes[int(len(poses)/2.0)]
-            motionStatus, timeElapsedTPIK = MoveCartesian(gpose1, 4, taskDataCopy.idMotion, taskDataCopy.ctrl_state, timeElapsedTPIK, 1000000)
+                gposes = generate_grasp_poses(goal_pose, TARGET_OFFSET)
+                gpose1 = gposes[int(len(poses)/2.0)]
+                for p in gposes: print("a pick pose is " + str(p))
+                print(bcolors.OKBLUE + "pick pose is " + str(gpose1) + bcolors.ENDC)
+            setMarker(gpose1,[1,0,0]) # rviz
+            setMarker2(goal_pose.pose,[1,0,0]) # rviz
+            motionStatus, timeElapsedTPIK = MoveCartesian(goal_pose.pose, 4, taskDataCopy.idMotion, taskDataCopy.ctrl_state, taskDataCopy.cart_ok, timeElapsedTPIK, 1000000)
             if (motionStatus == MotionState.MOTION_FINISHED):
                 print(bcolors.OKGREEN + "Plan pick OK" + bcolors.ENDC)
                 state = States.PLAN_GRAB
@@ -627,7 +665,7 @@ def pickTomato():
                 print(bcolors.WARNING + "Plan back" + bcolors.ENDC)
             poses = generate_grasp_poses(goal_pose, APPROACH_OFFSET)
             pose1 = poses[int(len(poses)/2.0)]
-            motionStatus, timeElapsedTPIK = MoveCartesian(pose1, 5, taskDataCopy.idMotion, taskDataCopy.ctrl_state, timeElapsedTPIK, 1000000)
+            motionStatus, timeElapsedTPIK = MoveCartesian(pose1, 5, taskDataCopy.idMotion, taskDataCopy.ctrl_state,taskDataCopy.cart_ok, timeElapsedTPIK, 1000000)
             if (motionStatus == MotionState.MOTION_FINISHED):
                 print(bcolors.OKGREEN + "Plan back OK" + bcolors.ENDC)
                 state = States.PLAN_HOME
@@ -640,7 +678,7 @@ def pickTomato():
             if timeElapsedTPIK < 0:
                 rospy.loginfo("Planning approach for HOME")
                 print(bcolors.WARNING + "Plan approach for HOME" + bcolors.ENDC)
-            motionStatus, timeElapsedTPIK = MoveJoints(BASKET_JOINT_POSITION, 6, taskDataCopy.idMotion, taskDataCopy.ctrl_state, timeElapsedTPIK, 1000000)
+            motionStatus, timeElapsedTPIK = MoveJoints(BASKET_JOINT_POSITION, 6, taskDataCopy.idMotion, taskDataCopy.ctrl_state, taskDataCopy.jointPos_ok, timeElapsedTPIK, 1000000)
             if motionStatus == MotionState.MOTION_FAILED:
                 print(bcolors.OKGREEN + "Plan approach for HOME OK" + bcolors.ENDC)
                 state = States.PLAN_HOME
@@ -754,6 +792,7 @@ def getTomatoPoses():
             goal_pose.pose.orientation.z = 0
             goal_pose.pose.orientation.w = 0.7071068
             id = pose.orientation.y
+            print("Tomato pose is " + str(goal_pose.pose))
             # NOTE 0 because TIAGO will stop when closing too hard
             radius = 0  # pose.orientation.z
             poses.append(goal_pose)
@@ -771,8 +810,7 @@ def TestTPIKServiceCart():
             move_type = "absolute",
             joint_setpoint = [],
             joint_index = 0,
-            #target_position = [0.5, -0.3, 0.74],
-            target_position = [0.14, -0.72, 0.8],
+            target_position = [0.38, 0.07, 0.25],
             target_orientation = [1.548, -0.001, 0.010],
             frame_type = 3,
             id = 0,
@@ -837,7 +875,7 @@ def TestTPIKServiceJoint():
         controlCommandSrv = rospy.ServiceProxy('/left_robot/srv/control_command', ControlCommand)
         resp1 = controlCommandSrv(command_type = "move_joints_pos",
             move_type = "absolute",
-            joint_setpoint = [0,0,0,0,0,0,0,0],
+            joint_setpoint = BASKET_JOINT_POSITION,
             #joint_setpoint = [0.35,0,-0.85,-0.57,0.39,-0.98,0.86,1.24],
             joint_index = 0,
             target_position = [0.0, 0.0, 0.0],
@@ -855,8 +893,23 @@ def TestTPIKServiceJoint():
 controllerType = ControllerType.TPIK
 
 if controllerType == ControllerType.TPIK_TEST:
-    #TestTPIKServiceCart()
-    TestTPIKServiceJoint()
+    TestTPIKServiceCart()
+    #TestTPIKServiceJoint()
+    testpose = PoseStamped()
+    testpose.pose.position.x = 0.38
+    testpose.pose.position.y = 0.007
+    testpose.pose.position.z = 0.25
+    testpose.header.frame_id = "base_footprint"
+    testpose.pose.orientation.x = 0.7071068
+    testpose.pose.orientation.y = 0
+    testpose.pose.orientation.z = 0
+    testpose.pose.orientation.w = 0.7071068
+    rospy.init_node("positionReacher")
+    marker_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=2)
+    marker_pub2 = rospy.Publisher("/visualization_goal", Marker, queue_size=2)
+    for i in range(0, 10000):
+        setMarker(testpose.pose, [0,1,0])
+        rospy.sleep(0.5)
     #TestEachJoint(1)
     #SendStop()
 elif controllerType == ControllerType.TPIK:
@@ -874,6 +927,7 @@ elif controllerType == ControllerType.TPIK:
     print("[TPIK] point ok")
 
     marker_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=2)
+    marker_pub2 = rospy.Publisher("/visualization_goal", Marker, queue_size=2)
     state_pub = rospy.Publisher("/state_info", state_info, queue_size=2)
     gripper_pub = rospy.Publisher(
         "/parallel_gripper_controller/command", JointTrajectory, queue_size=2)

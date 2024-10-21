@@ -44,6 +44,8 @@ void MoveCartesian::SetCartesianGoal(boost::array<double, 3> target_xyz, boost::
     targetRPY_ = target_rpy;
     moveType_  = move_type;
     frameType_ = frame_type;
+    std::cerr << tc::bluL << "[Move,Cartesian::SetCartesianGoal] new goal is " << 
+        target_xyz[0] << ", " << target_xyz[1] << ", " << target_xyz[2] << "!" << tc::none << std::endl;
 }
 
 }

@@ -224,8 +224,8 @@ bool KinematicController::Initialization()
     // Attach a tool frame to the last joint
     std::string jointNID = armModel_->ID() + rml::FrameID::Joint + std::to_string(dof - 1);
     Eigen::TransformationMatrix jointN_T_toolF;
-    jointN_T_toolF.TranslationVector(Eigen::Vector3d(0.0, 0.0, 0));
-    Eigen::RotationMatrix toolRot = (rml::EulerRPY(0.0, 0.0, 0.0)).ToRotationMatrix();
+    jointN_T_toolF.TranslationVector(Eigen::Vector3d(0.0,0,0.197));
+    Eigen::RotationMatrix toolRot = (rml::EulerRPY(1.571, 0, 0.0)).ToRotationMatrix();
     jointN_T_toolF.RotationMatrix(toolRot);
 
     robotModel_->AttachRigidBodyFrame(appleRobot::ID::RobotModel::ToolFrame, jointNID, jointN_T_toolF);
@@ -259,7 +259,7 @@ bool KinematicController::Initialization()
     ikcl::PlaneObstacle groundPlane(groundPlaneParams, rml::FrameID::WorldFrame);
     
     Eigen::TransformationMatrix worldF_T_testSphere;
-    worldF_T_testSphere.TranslationVector(Eigen::Vector3d(1.5,0,0.8));
+    worldF_T_testSphere.TranslationVector(Eigen::Vector3d(0.0,0,0.197));
     ikcl::SphereObstacle testSphere(worldF_T_testSphere, rml::FrameID::WorldFrame, 20.0);
 
     std::vector<std::string> framesID; 
@@ -508,7 +508,7 @@ void KinematicController::SlowTimer()
     std::cerr << id_ << "[KCL] ytpik = " <<  yTpik_.transpose() << std::endl;
     std::cerr << id_ << "[KCL] believed joint position = " << armModel_->JointsPosition().transpose()  << std::endl;
     std::cerr << id_ << "[KCL] receivingFeedback_ = " << receivingFeedback_ << std::endl;
-    std::cerr << id_ << "[KCL] worldTtool = " << robotModel_->TransformationMatrix(rml::FrameID::WorldFrame, robotInfo_->toolID) << std::endl;
+    std::cerr << id_ << "[KCL] world_T_tool = " << robotModel_->TransformationMatrix(rml::FrameID::WorldFrame, robotInfo_->toolID) << std::endl;
     std::cerr << id_ << "[KCL] targetJointPos = " << targetJointPos_.transpose() << std::endl;
 }
 
@@ -539,7 +539,7 @@ void KinematicController::Run()
 
             auto worldF_tool = robotModel_->TransformationMatrix(robotInfo_->toolID).TranslationVector();
 
-            std::vector<std::shared_ptr<ikcl::Obstacle>> obstacles;
+            /*std::vector<std::shared_ptr<ikcl::Obstacle>> obstacles;
             for (auto cntr : obstacleCentroids_) {
                 if ((cntr - worldF_tool).norm() < 0.5) {
                     Eigen::TransformationMatrix worldF_T_sphere;
@@ -557,7 +557,7 @@ void KinematicController::Run()
                     obstacleAvoidanceTask->Obstacles(obstacles) ;
                     tasksMap_[appleRobot::ID::Tasks::ObstacleAvoidance].task = obstacleAvoidanceTask;
                 }
-            }
+            }*/
 
             for (auto& taskMap : tasksMap_) {
                 try {
@@ -807,7 +807,7 @@ void KinematicController::PublishControl()
     controlDataMsg_.jointPos_ok = stateMoveJointsPos_->ok_;
     controlDataMsg_.cart_ok = stateMoveCartesian_->ok_;
 
-    controlDataMsg_.idMotion = motionId_;
+    controlDataMsg_.idMotion = motionId_ ;
 
     auto stateIsDisabled = false; // TODO put true state feedback from state machine
     if (!stateIsDisabled) {
