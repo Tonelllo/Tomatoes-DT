@@ -5,7 +5,7 @@
 #include "geometry_msgs/PoseArray.h"
 #include "ros/publisher.h"
 #include <tomato_detection/BestPos.h>
-#include <tomato_detection/getLatestTomatoPositions.h>
+#include <tomato_detection/LatestTomatoPositions.h>
 #include <message_filters/subscriber.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/synchronizer.h>
@@ -20,6 +20,8 @@
 #include "tf2_ros/transform_listener.h"
 #include <tf2/LinearMath/Transform.h>
 #include "tf2_ros/transform_listener.h"
+#include "message_filters/cache.h"
+#include "toml++/toml.hpp"
 
 class VisionManager
 {
@@ -35,14 +37,13 @@ class VisionManager
   image_geometry::PinholeCameraModel m_camera_model_;
   tf2::Transform stampedTransform2tf2Transform(geometry_msgs::TransformStamped);
 
-  using Sync_policy_ = message_filters::sync_policies::ApproximateTime<geometry_msgs::PoseArray,
-                                                                       sensor_msgs::CameraInfo, sensor_msgs::Image>;
-  message_filters::Subscriber<geometry_msgs::PoseArray> m_pose_sub_;
+  ros::Subscriber m_pose_sub_;
   message_filters::Subscriber<sensor_msgs::CameraInfo> m_camera_sub_;
-  // message_filters::Subscriber<sensor_msgs::PointCloud2> m_point_sub_;
   message_filters::Subscriber<sensor_msgs::Image> m_point_sub_;
-
-  std::shared_ptr<message_filters::Synchronizer<Sync_policy_>> m_sync_;
+  message_filters::Subscriber<sensor_msgs::Image> m_rgb_sub_;
+  message_filters::Cache<sensor_msgs::CameraInfo> m_camera_cache_;
+  message_filters::Cache<sensor_msgs::Image> m_point_cache_;
+  message_filters::Cache<sensor_msgs::Image> m_rgb_cache_;
 
   void setNextPoint(float, float);
   void goalReachedCallback();
@@ -53,6 +54,8 @@ class VisionManager
   tf2_ros::TransformListener* m_tfListener_;
   std::mutex poseMutex;
   geometry_msgs::PoseArray m_latest_positions;
+  toml::table m_colorVals_;
+  const uint ERROR_VAL = 99999;
 
 public:
   VisionManager(ros::NodeHandle&);
@@ -62,9 +65,9 @@ public:
   void lookUp();
   void scan();
   void lookAtBestPosition();
-  void computeDistances(geometry_msgs::PoseArray, sensor_msgs::CameraInfo, sensor_msgs::Image);
+  void computeDistances(geometry_msgs::PoseArray);
   void getBestPosition();
   void startYOLOScan();
-  bool getLatestTomatoPositions(tomato_detection::getLatestTomatoPositionsRequest& req,
-                                tomato_detection::getLatestTomatoPositionsResponse& res);
+  bool getLatestTomatoPositions(tomato_detection::LatestTomatoPositionsRequest& req,
+                                tomato_detection::LatestTomatoPositionsResponse& res);
 };

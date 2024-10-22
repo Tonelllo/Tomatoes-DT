@@ -17,7 +17,7 @@ class Model_used(Enum):
     DETECTION = 2
 
 
-mode = Model_used.TRACKING
+mode = Model_used.DETECTION
 
 """
 Description:
@@ -34,7 +34,7 @@ bridge = CvBridge()
 
 rospack = rospkg.RosPack()
 node_path = rospack.get_path("tomato_detection") + "/models/"
-model = YOLO(node_path + "tomato_80prec_70rec.pt")
+model = YOLO(node_path + "yolov10m_86p_86r.pt")
 # pub = rospy.Publisher("detection/current_count", Int8, queue_size=5)
 count = 0
 history = []
@@ -58,7 +58,7 @@ def giveBestPosition(req):
 
     if req.activate:
         image_subscriber = rospy.Subscriber(
-            "xtion/rgb/image_raw", Image, callback)
+            "/tomato_sync/image_rgb", Image, callback)
         head_subscriber = rospy.Subscriber("/head_controller/state",
                                            JointTrajectoryControllerState, positionGetter)
         return False, 0

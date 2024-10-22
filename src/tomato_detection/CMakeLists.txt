@@ -22,7 +22,17 @@ find_package(catkin REQUIRED COMPONENTS
     tf
     pcl_ros
     cv_bridge
+    moveit_core
 )
+
+
+include(FetchContent)
+FetchContent_Declare(
+    tomlplusplus
+    GIT_REPOSITORY https://github.com/marzer/tomlplusplus.git
+    GIT_TAG        v3.4.0
+)
+FetchContent_MakeAvailable(tomlplusplus)
 
 
 
@@ -164,6 +174,7 @@ add_dependencies(tomato_vision_manager ${${PROJECT_NAME}_EXPORTED_TARGETS} ${cat
 target_link_libraries(tomato_vision_manager
   ${catkin_LIBRARIES}
   Eigen3::Eigen
+  tomlplusplus::tomlplusplus
 )
 
 #############

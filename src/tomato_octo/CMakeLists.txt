@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
     roscpp
     octomap_msgs
     moveit_msgs
+    cv_bridge
 )
 
 
