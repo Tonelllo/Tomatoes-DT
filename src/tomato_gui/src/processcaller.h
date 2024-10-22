@@ -2,9 +2,11 @@
 #define PROCESSCALLER_H
 
 #include <QObject>
+#include "ros/node_handle.h"
 #include <qobject.h>
 #include <qprocess.h>
 #include <qtmetamacros.h>
+#include <ros/ros.h>
 
 class ProcessCaller : public QObject
 {
@@ -14,6 +16,7 @@ public:
   ProcessCaller();
   ~ProcessCaller();
   Q_INVOKABLE void startHomeMovement();
+  Q_INVOKABLE void stopMovement();
   QString processOutput() const;
   void setProcessOutput(const QString& newProcessOutput);
 signals:
@@ -23,6 +26,8 @@ private:
   QProcess* m_homing;
   QString m_processOutput;
   QString m_modulePath;
+  ros::NodeHandle m_nh;
+  ros::ServiceClient stopClient;
 };
 
 #endif  // PROCESSCALLER_H

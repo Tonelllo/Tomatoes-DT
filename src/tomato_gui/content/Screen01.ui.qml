@@ -15,7 +15,7 @@ Rectangle {
     SwipeView {
         id: mainSwipe
         interactive: true
-        currentIndex: 1
+        currentIndex: 2
         anchors.fill: parent
 
         ControlPane {

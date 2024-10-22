@@ -5,6 +5,8 @@
 #include <QProcess>
 #include <ros/package.h>
 #include <QCoreApplication>
+#include "std_srvs/EmptyRequest.h"
+#include <std_srvs/Empty.h>
 
 ProcessCaller::ProcessCaller()
 {
@@ -12,9 +14,11 @@ ProcessCaller::ProcessCaller()
   if (m_modulePath.isEmpty())
   {
     qDebug() << "tomato_gui not present defaulting to local directory";
-    m_modulePath = QCoreApplication::applicationDirPath()+"/..";
+    m_modulePath = QCoreApplication::applicationDirPath() + "/..";
   }
   m_homing = new QProcess(this);
+  m_nh = ros::NodeHandle();
+  stopClient = m_nh.serviceClient<std_srvs::Empty>("arm_mover/stop");
 }
 
 ProcessCaller::~ProcessCaller()
@@ -50,4 +54,10 @@ void ProcessCaller::setProcessOutput(const QString& newProcessOutput)
     return;
   m_processOutput = newProcessOutput;
   emit processOutputChanged();
+}
+
+void ProcessCaller::stopMovement()
+{
+    auto r = std_srvs::Empty();
+    stopClient.call(r);
 }

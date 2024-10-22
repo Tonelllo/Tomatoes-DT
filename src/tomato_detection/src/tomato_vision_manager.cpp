@@ -243,6 +243,9 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg)
       ROS_ERROR("Wrong image encoding for depth data");
     }
 
+    /*cv::circle(f32image, cv::Point(x, y), 15, cv::Scalar(0, 0, 0), 3);*/
+    /*cv::circle(f32image, cv::Point(x, y), 5, cv::Scalar(255, 255, 255), 3);*/
+
     if (!m_colorVals_.empty())
     {
       cv::Mat hsvMat, masked;
@@ -305,8 +308,6 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg)
         /*cv::circle(f32image, cv::Point(x, y), 5, cv::Scalar(255, 255, 255), 3);*/
       }
     }
-    /*cv::circle(f32image, cv::Point(x, y), 15, cv::Scalar(0, 0, 0), 3);*/
-    /*cv::circle(f32image, cv::Point(x, y), 5, cv::Scalar(255, 255, 255), 3);*/
     float depth = f32image.at<float>(y, x);  // NOTE Row, Col
 
     // Diameter

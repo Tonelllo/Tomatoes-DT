@@ -20,9 +20,18 @@ Rectangle {
     property alias ripe: ripe
     property alias halfRipe: halfRipe
     property alias green: green
+    property alias eStop: eStop
 
     color: Universal.background
 
+    Button {
+        id: eStop
+        x: 0
+        y: 0
+        width: 300
+        height: 100
+        text: qsTr("STOP")
+    }
     RowLayout {
         id: mainLayout
         anchors.fill: parent

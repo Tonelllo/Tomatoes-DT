@@ -23,6 +23,7 @@ from threading import Lock
 from tomato_detection.srv import LatestTomatoPositions
 from tomato_trajectory_splicer.srv import SpliceService
 from queue import Queue
+from std_srvs.srv import Empty
 import threading
 
 GROUP_NAME = "arm_torso"
@@ -509,7 +510,6 @@ def worker():
                 print("Removed state")
 
 
-
 def pickTomato():
     """
     State machine that enables the picking of the tomatoes.
@@ -557,7 +557,6 @@ def pickTomato():
             if res.lower() == "n":
                 rospy.signal_shutdown("FINISHED TOMATOES")
                 sys.exit(0)
-
 
         elif state == States.HOME:
             break
@@ -725,6 +724,12 @@ def checkDistanceUnderThreshold(new_tomato):
     return False
 
 
+def stopService(req):
+    move_group.stop()
+    rospy.signal_shutdown("RECEIVED STOP")
+    return []
+
+
 def getTomatoPoses():
     """
     Ros callback for "/tomato_vision_manager/tomato_position" topic.
@@ -778,13 +783,14 @@ scene = moveit_commander.PlanningSceneInterface()
 move_group = moveit_commander.MoveGroupCommander(GROUP_NAME)
 
 # move_group.set_planner_id("PRMstarkConfigDefault") # Good trajectories, better than RRTStar in planning time (1.0)
-# move_group.set_planner_id("BKPIECEkConfigDefault") # Can lead to atrocious trajectories. Seems to always find a good trajectory. Fast in planning (1.0) 
+# move_group.set_planner_id("BKPIECEkConfigDefault") # Can lead to atrocious trajectories. Seems to always find a good trajectory. Fast in planning (1.0)
 # move_group.set_planner_id("RRTstarkConfigDefault") # Very good trajectories. Not so fast in planning (1.5)
 # move_group.set_planner_id("RRTkConfigDefault") # Best at speed. Shitty trajectories (0.5)
-move_group.set_planner_id("RRTConnectkConfigDefault") # Best at speed. Shitty trajectories (0.5)
-                                                      # This is probably the one that we are going to use because
-                                                      # ever if the trajectories are not good it produces many of them
-                                                      # and it's easier to find one that is not soo bad between them
+# Best at speed. Shitty trajectories (0.5)
+move_group.set_planner_id("RRTConnectkConfigDefault")
+# This is probably the one that we are going to use because
+# ever if the trajectories are not good it produces many of them
+# and it's easier to find one that is not soo bad between them
 # move_group.set_planner_id("SemiPersistentLazyPRMstar")
 # move_group.set_planner_id("TRRTkConfigDefault") # Good speed and trajectories but shitty in finding trajectories (1.2)
 move_group.set_planning_time(FIRST_ITER_PLANNING_TIMEOUT)
@@ -832,11 +838,14 @@ rospy.wait_for_service("/tomato_vision_manager/tomato_position_service")
 getTomatoPosesProxy = rospy.ServiceProxy(
     "/tomato_vision_manager/tomato_position_service", LatestTomatoPositions)
 
+rospy.Service("arm_mover/stop", Empty, stopService)
+
 x = threading.Thread(target=worker, args=())
 x.start()
 
 pickTomato()
 
+x.join()
 
 # TODO s
 # - In case that no tomato has been found in next_tomato wait for the head
