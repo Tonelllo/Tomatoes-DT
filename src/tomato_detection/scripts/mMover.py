@@ -28,7 +28,7 @@ from control_msgs.msg import PointHeadAction, PointHeadGoal
 GROUP_NAME = "arm_torso"
 TARGET_OFFSET = 0.21
 APPROACH_OFFSET = 0.30
-AVOID_COLLISION_SPHERE_RADIUS = 0.055
+AVOID_COLLISION_SPHERE_RADIUS = 0.095
 EFFORT = 0.3
 CARTESIAN_FAILURE_THRESHOLD = 0.9
 OPEN_GRIPPER_POS = 0.05
@@ -59,14 +59,14 @@ def getTomatoPoses():
     # toReachTS = filter(isRipe, toReachTS)
     toReach = sorted(toReachTS, key=lambda elem: elem.position.x)
 
-    # index = 0
-    # while index < len(toReach) and checkDistanceUnderThreshold(toReach[index]):
-    #     index += 1
+    index = 0
+    while index < len(toReach) and checkDistanceUnderThreshold(toReach[index]):
+        index += 1
 
-    # if index == len(toReach):
-    #     rospy.logwarn("All reachable tomatoes have been picked")
-    #     rospy.signal_shutdown("FINISHED TOMATOES")
-    #     sys.exit()
+    if index == len(toReach):
+        rospy.logwarn("All reachable tomatoes have been picked")
+        rospy.signal_shutdown("FINISHED TOMATOES")
+        sys.exit()
 
     poses = []
     for pose in toReach:
@@ -82,11 +82,11 @@ def getTomatoPoses():
             goal_pose.pose.orientation.w = 0.7071068
             id = pose.orientation.y
             # NOTE 0 because TIAGO will stop when closing too hard
-            radius = 0  # pose.orientation.z
+            radius = pose.orientation.z
             poses.append(goal_pose)
         else:
             rospy.logerr("Received NaN")
-    return poses
+    return poses, radius
 
 def checkDistanceUnderThreshold(new_tomato):
     """
@@ -159,6 +159,7 @@ def lookAtTomato(tomato_position):
 
     point_head_client.send_goal(head_goal)
 
+
 def setTargetTomato(goal_pose, radius):
     """
     Disables the collisions in an area defined by a sphere.
@@ -168,6 +169,7 @@ def setTargetTomato(goal_pose, radius):
 
     :param goal_pose Pose: Position of the tomato to reach
     """
+    global first_addition
     scene.add_sphere("target_tomato", goal_pose, radius)
     scene.add_sphere("noCollisions", goal_pose, AVOID_COLLISION_SPHERE_RADIUS)
     diff_scene = PlanningScene()
@@ -186,64 +188,24 @@ def setTargetTomato(goal_pose, radius):
     scene.apply_planning_scene(diff_scene)
     rospy.loginfo("Added sphere")
 
-# def setTargetTomato(goal_pose, radius):
-#     """
-#     Disables the collisions in an area defined by a sphere.
-#
-#     This sphere has a radius of AVOID_COLLISION_SPHERE_RADIUS.
-#     This in order to allow the approach of the arm to the tomato.
-#
-#     :param goal_pose Pose: Position of the tomato to reach
-#     """
-#     scene.add_sphere("noCollisions", goal_pose, AVOID_COLLISION_SPHERE_RADIUS)
-#     diff_scene = PlanningScene()
-#     diff_scene.is_diff = True
-#     acm = scene.get_planning_scene(
-#         PlanningSceneComponents.ALLOWED_COLLISION_MATRIX).allowed_collision_matrix
-#     for elem in acm.entry_values:
-#         elem.enabled.extend([True])
-#     acm.entry_names.extend(["noCollisions"])
-#     acm.entry_values.extend([
-#         AllowedCollisionEntry(enabled=[True] * len(acm.entry_names))
-#     ])
-#     diff_scene.allowed_collision_matrix = acm
-#     scene.apply_planning_scene(diff_scene)
-#
-#     lookAtTomato(goal_pose)
-#     rospy.sleep(3)
-#     scene.add_sphere("target_tomato", goal_pose, radius)
-#     diff_scene = PlanningScene()
-#     diff_scene.is_diff = True
-#     acm = scene.get_planning_scene(
-#         PlanningSceneComponents.ALLOWED_COLLISION_MATRIX).allowed_collision_matrix
-#     for elem in acm.entry_values:
-#         elem.enabled.extend([False])
-#     acm.entry_names.extend(["target_tomato"])
-#     acm.entry_values.extend([
-#         AllowedCollisionEntry(enabled=[False] * len(acm.entry_names))
-#     ])
-#     acm.entry_values[-2].enabled[-1] = True
-#
-#     rospy.loginfo("Added sphere")
-
 
 def removeTargetTomato():
     """Remove the previously set sphere from the scene."""
     scene.remove_world_object("target_tomato")
     scene.remove_world_object("noCollisions")
-    diff_scene = PlanningScene()
-    diff_scene.is_diff = True
-    acm = scene.get_planning_scene(
-        PlanningSceneComponents.ALLOWED_COLLISION_MATRIX).allowed_collision_matrix
-    for elem in acm.entry_values:
-        elem.enabled.pop()
-        elem.enabled.pop()
-    acm.entry_values.pop()
-    acm.entry_values.pop()
-    acm.entry_names.pop()
-    acm.entry_names.pop()
-    diff_scene.allowed_collision_matrix = acm
-    scene.apply_planning_scene(diff_scene)
+    # diff_scene = PlanningScene()
+    # diff_scene.is_diff = True
+    # acm = scene.get_planning_scene(
+    #     PlanningSceneComponents.ALLOWED_COLLISION_MATRIX).allowed_collision_matrix
+    # for elem in acm.entry_values:
+    #     elem.enabled.pop()
+    #     elem.enabled.pop()
+    # acm.entry_values.pop()
+    # acm.entry_values.pop()
+    # acm.entry_names.pop()
+    # acm.entry_names.pop()
+    # diff_scene.allowed_collision_matrix = acm
+    # scene.apply_planning_scene(diff_scene)
     rospy.loginfo("Removed sphere")
 
 
@@ -339,7 +301,7 @@ def generate_grasp_poses(object_pose, radius=APPROACH_OFFSET):
     return sphere_poses
 
 
-def create_grasp(pose, grasp_id):
+def create_grasp(pose, grasp_id, radius):
     """
     :type pose: pose
         pose of the gripper for the grasp
@@ -354,7 +316,7 @@ def create_grasp(pose, grasp_id):
     pre_grasp_posture.joint_names = [
         "gripper_left_finger_joint", "gripper_right_finger_joint"]
     jtpoint = JointTrajectoryPoint()
-    jtpoint.positions = [0.044, 0.044]
+    jtpoint.positions = [radius, radius]
     jtpoint.time_from_start = rospy.Duration(1)  # TODO check
     pre_grasp_posture.points.append(jtpoint)
 
@@ -408,13 +370,13 @@ def create_grasp(pose, grasp_id):
     return g
 
 
-def pickTomato(goal_pose):
+def pickTomato(goal_pose, radius):
     gpos = generate_grasp_poses(goal_pose, radius=TARGET_OFFSET)
 
     grasps = []
     for idx, pose in enumerate(gpos):
         grasps.append(
-            create_grasp(pose, "grasp_" + str(idx)))
+            create_grasp(pose, "grasp_" + str(idx), radius))
 
     move_group.pick("target_tomato", grasp=grasps)
 
@@ -442,11 +404,12 @@ move_group = moveit_commander.MoveGroupCommander(GROUP_NAME)
 move_group.set_planner_id("RRTstarkDefaultConfig")
 move_group.set_planning_time(10)
 
-tomato_poses = getTomatoPoses()
+tomato_poses, radius = getTomatoPoses()
 goal_pose = getNewValidTomato(tomato_poses)
 
+goal_pose = tomato_poses[1]
 setTargetTomato(goal_pose, 0.03)
-pickTomato(goal_pose)
+pickTomato(goal_pose, radius)
 move_group.set_joint_value_target(BASKET_JOINT_POSITION)
 move_group.go(wait=True)
 openGripper()
