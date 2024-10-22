@@ -736,7 +736,7 @@ def getTomatoPoses():
     positions = getTomatoPosesProxy()
     toReachTS = copy.deepcopy(positions.tomatoes.poses)
 
-    # toReachTS = filter(isRipe, toReachTS)
+    toReachTS = filter(isRipe, toReachTS)
     toReach = sorted(toReachTS, key=lambda elem: elem.position.x)
 
     # index = 0

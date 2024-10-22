@@ -8,6 +8,7 @@ from geometry_msgs.msg import PoseArray
 from geometry_msgs.msg import Pose
 from ultralytics import YOLO
 import rospkg
+import cv2
 
 """
 Description:
@@ -87,8 +88,10 @@ def callback(data):
             # currently_detected_keys.append(id)
             # if id not in tomatoes:
             # You lose the first
+            if label != 0:  # If not ripe do not send
+                continue
             x, y, w, h = box
-            tomatoes[index] = {"pos": (x, y, w), "cls": int(label)}
+            tomatoes[index] = {"pos": (x, y, w, h), "cls": int(label)}
             index += 1
 
         # This keys are sorted based on how long they have
@@ -102,12 +105,13 @@ def callback(data):
         out = PoseArray()
         for key in tomatoes:
             elem = Pose()
-            (x, y, w) = tomatoes[key]["pos"]
+            (x, y, w, h) = tomatoes[key]["pos"]
             elem.orientation.x = x
             elem.orientation.y = y
             elem.orientation.z = tomatoes[key]["cls"]
             elem.orientation.w = -1
-            elem.position.x = w  # Horizontal daimeter in pixels
+            elem.position.x = w  # Horizontal diameter in pixels
+            elem.position.y = h  # Horizontal diameter in pixels
             out.poses.append(elem)
             # out.header = sensor_msgs.msg.Header()
         out.header.stamp = data.header.stamp

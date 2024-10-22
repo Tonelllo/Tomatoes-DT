@@ -1,5 +1,5 @@
 [hue]
-max = 15
+max = 12
 min = 0
 
 [rad]
@@ -8,7 +8,7 @@ min = 17
 
 [sat]
 max = 255
-min = 56
+min = 113
 
 [val]
 max = 255

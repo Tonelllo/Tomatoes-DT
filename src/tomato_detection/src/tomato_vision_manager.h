@@ -21,6 +21,7 @@
 #include <tf2/LinearMath/Transform.h>
 #include "tf2_ros/transform_listener.h"
 #include "message_filters/cache.h"
+#include "toml++/toml.hpp"
 
 class VisionManager
 {
@@ -39,8 +40,10 @@ class VisionManager
   ros::Subscriber m_pose_sub_;
   message_filters::Subscriber<sensor_msgs::CameraInfo> m_camera_sub_;
   message_filters::Subscriber<sensor_msgs::Image> m_point_sub_;
+  message_filters::Subscriber<sensor_msgs::Image> m_rgb_sub_;
   message_filters::Cache<sensor_msgs::CameraInfo> m_camera_cache_;
   message_filters::Cache<sensor_msgs::Image> m_point_cache_;
+  message_filters::Cache<sensor_msgs::Image> m_rgb_cache_;
 
   void setNextPoint(float, float);
   void goalReachedCallback();
@@ -51,6 +54,8 @@ class VisionManager
   tf2_ros::TransformListener* m_tfListener_;
   std::mutex poseMutex;
   geometry_msgs::PoseArray m_latest_positions;
+  toml::table m_colorVals_;
+  const uint ERROR_VAL = 99999;
 
 public:
   VisionManager(ros::NodeHandle&);

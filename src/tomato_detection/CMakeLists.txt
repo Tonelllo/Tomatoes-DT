@@ -26,6 +26,15 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 
+include(FetchContent)
+FetchContent_Declare(
+    tomlplusplus
+    GIT_REPOSITORY https://github.com/marzer/tomlplusplus.git
+    GIT_TAG        v3.4.0
+)
+FetchContent_MakeAvailable(tomlplusplus)
+
+
 
 ## System dependencies are found with CMake's conventions
 find_package(Boost REQUIRED COMPONENTS system)
@@ -165,6 +174,7 @@ add_dependencies(tomato_vision_manager ${${PROJECT_NAME}_EXPORTED_TARGETS} ${cat
 target_link_libraries(tomato_vision_manager
   ${catkin_LIBRARIES}
   Eigen3::Eigen
+  tomlplusplus::tomlplusplus
 )
 
 #############
