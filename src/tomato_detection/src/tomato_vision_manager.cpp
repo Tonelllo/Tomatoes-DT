@@ -195,8 +195,10 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg)
   auto auxDepthInfo = m_point_cache_.getInterval(msg.header.stamp, msg.header.stamp);
   auto auxRgbInfo = m_rgb_cache_.getInterval(msg.header.stamp, msg.header.stamp);
 
-  if (auxInfo.empty() || auxDepthInfo.empty())
+  if (auxInfo.empty() || auxDepthInfo.empty() || auxRgbInfo.empty()){
+    /*ROS_WARN("Caches were empty");*/
     return;
+  }
 
   info = *auxInfo[0];
   depthInfo = *auxDepthInfo[0];
@@ -216,7 +218,7 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg)
   tf2::Transform camera_to_torso;
   try
   {
-    transformStamped = m_buffer_.lookupTransform("base_footprint", m_camera_model_.tfFrame(), ros::Time(0));
+    transformStamped = m_buffer_.lookupTransform("base_footprint", m_camera_model_.tfFrame(), ros::Time(0)); // TODO maybe put time
     camera_to_torso = stampedTransform2tf2Transform(transformStamped);
   }
   catch (tf2::TransformException& ex)
@@ -242,6 +244,9 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg)
     {
       ROS_ERROR("Wrong image encoding for depth data");
     }
+
+    /*cv::circle(f32image, cv::Point(x, y), 15, cv::Scalar(0, 0, 0), 3);*/
+    /*cv::circle(f32image, cv::Point(x, y), 5, cv::Scalar(255, 255, 255), 3);*/
 
     if (!m_colorVals_.empty())
     {
@@ -305,8 +310,6 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg)
         /*cv::circle(f32image, cv::Point(x, y), 5, cv::Scalar(255, 255, 255), 3);*/
       }
     }
-    /*cv::circle(f32image, cv::Point(x, y), 15, cv::Scalar(0, 0, 0), 3);*/
-    /*cv::circle(f32image, cv::Point(x, y), 5, cv::Scalar(255, 255, 255), 3);*/
     float depth = f32image.at<float>(y, x);  // NOTE Row, Col
 
     // Diameter

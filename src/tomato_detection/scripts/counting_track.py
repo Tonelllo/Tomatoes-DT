@@ -29,7 +29,7 @@ Description:
     where 5 is a magic number.
 """
 
-MAX_HISTORY = 30
+MAX_HISTORY = 3
 bridge = CvBridge()
 
 rospack = rospkg.RosPack()
@@ -52,11 +52,13 @@ print("STARTED")
 def getCenter(x, y, w, h):
     return ((x+w) / 2, (y+h) / 2)
 
-
 def giveBestPosition(req):
-    global best_tilt, number_x, number_y, val_x, val_y, image_subscriber, head_subscriber
+    global best_tilt, number_x, number_y, val_x, val_y, image_subscriber, head_subscriber, max_goodness
 
     if req.activate:
+        best_tilt = 0
+        max_goodness = 0
+        history.clear()
         image_subscriber = rospy.Subscriber(
             "/tomato_sync/image_rgb", Image, callback)
         head_subscriber = rospy.Subscriber("/head_controller/state",
@@ -122,7 +124,7 @@ def callback(data):
         window_pos[0] /= MAX_HISTORY
         window_pos[1] /= MAX_HISTORY
         position_index = max_dist - math.dist(window_pos, camera_center)
-        # 10 is a parameter to tune
+        # 5 is a parameter to tune
         goodness_index = position_index + window_count * 5
         if goodness_index >= max_goodness:
             max_goodness = goodness_index
@@ -130,7 +132,7 @@ def callback(data):
 
 
 rospy.init_node("counter_track")
-camera_info = rospy.Subscriber("/xtion/rgb/camera_info", CameraInfo, getParams)
+camera_info = rospy.Subscriber("/tomato_sync/image_params", CameraInfo, getParams)
 rospy.Service("tomato_counting/get_best_tilt", BestPos, giveBestPosition)
 
 rospy.spin()

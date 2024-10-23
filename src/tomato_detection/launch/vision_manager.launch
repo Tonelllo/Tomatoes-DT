@@ -5,3 +5,4 @@
    <node name="counting_track" pkg="tomato_detection" type="counting_track.py" output="screen"/>
    <node name="tomato_vision_manager" pkg="tomato_detection" type="tomato_vision_manager" output="screen"/>
 </launch>
+<!--launch-prefix="gdb -ex run \-\-args"-->

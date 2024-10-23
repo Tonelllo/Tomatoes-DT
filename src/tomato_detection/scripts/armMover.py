@@ -20,9 +20,10 @@ from enum import Enum
 import numpy as np
 from tomato_detection.srv import BestPos
 from threading import Lock
-from tomato_detection.srv import LatestTomatoPositions
+from tomato_detection.srv import LatestTomatoPositions, CurrentVisionState
 from tomato_trajectory_splicer.srv import SpliceService
 from queue import Queue
+from std_srvs.srv import Empty
 import threading
 
 GROUP_NAME = "arm_torso"
@@ -65,6 +66,8 @@ processed_tomatoes = []
 class States(Enum):
     """States for the state machine."""
 
+    RESTART = -2
+    WAIT_FOR_SCAN = -1
     RESET = 0
     PLAN_APPROACH = 1
     PLAN_PICK = 2
@@ -362,9 +365,11 @@ def getNewValidTomato(lt):
         index += 1
 
     if index == len(lt):
-        rospy.logwarn("All reachable tomatoes have been picked")
-        rospy.signal_shutdown("FINISHED TOMATOES")
-        sys.exit()
+        rospy.logwarn("All reachable tomatoes have been picked, moving head")
+        return False
+        # rospy.logwarn("All reachable tomatoes have been picked")
+        # rospy.signal_shutdown("FINISHED TOMATOES")
+        # sys.exit()
 
     return lt[index]
 
@@ -509,7 +514,6 @@ def worker():
                 print("Removed state")
 
 
-
 def pickTomato():
     """
     State machine that enables the picking of the tomatoes.
@@ -536,7 +540,23 @@ def pickTomato():
             rospy.loginfo("Wating for completion of some plans")
             rospy.sleep(1)
 
-        if state == States.RESET:
+        if state == States.RESTART:
+            while future_plans_num != 0:
+                rospy.loginfo("Waiting for completion of the previous movement")
+                rospy.sleep(1)
+            restartScanProxy()
+            state = States.WAIT_FOR_SCAN
+        elif state == States.WAIT_FOR_SCAN:
+            scanFinished = getStateProxy()
+            if scanFinished.scanFinished:
+                tomato_poses_mutex.acquire()
+                tomato_poses = getTomatoPoses()
+                tomato_poses_mutex.release()
+                state = States.PLAN_APPROACH
+            else:
+                rospy.loginfo("Waiting for completion of scan")
+                rospy.sleep(1)
+        elif state == States.RESET:
             resetHead()
             openGripper()
             move_group.set_joint_value_target(BASKET_JOINT_POSITION)
@@ -558,13 +578,16 @@ def pickTomato():
                 rospy.signal_shutdown("FINISHED TOMATOES")
                 sys.exit(0)
 
-
         elif state == States.HOME:
             break
         elif state == States.PLAN_APPROACH:
             tomato_poses_mutex.acquire()
             goal_pose = getNewValidTomato(tomato_poses)
             tomato_poses_mutex.release()
+
+            if goal_pose is False:
+                state = States.RESTART
+                continue
 
             processed_tomatoes.append(
                 np.array([goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z]))
@@ -613,6 +636,7 @@ def pickTomato():
                     future_plans.put(("pick", traj))
 
             else:
+                rospy.logwarn("Plan pick Failed")
                 state = States.PLAN_APPROACH
                 planning_mutex.release()
                 continue
@@ -659,10 +683,12 @@ def pickTomato():
             planning_mutex.acquire()
             move_group.set_start_state(latest_planned_state)
             move_group.set_joint_value_target(BASKET_JOINT_POSITION)
+            move_group.allow_replanning(True)
             move_group.set_planning_time(PLAN_HOME_TIMEOUT)
             move_group.set_planner_id(PLAN_HOME_PLANNER)
             next_tomato = move_group.plan()
             move_group.set_planner_id(NORMAL_PLANER)
+            move_group.allow_replanning(False)
             (s, t, tt, e) = next_tomato
             if back_plan is not False:
                 (state, traj) = back_plan
@@ -725,6 +751,12 @@ def checkDistanceUnderThreshold(new_tomato):
     return False
 
 
+def stopService(req):
+    move_group.stop()
+    rospy.signal_shutdown("RECEIVED STOP")
+    return []
+
+
 def getTomatoPoses():
     """
     Ros callback for "/tomato_vision_manager/tomato_position" topic.
@@ -778,13 +810,14 @@ scene = moveit_commander.PlanningSceneInterface()
 move_group = moveit_commander.MoveGroupCommander(GROUP_NAME)
 
 # move_group.set_planner_id("PRMstarkConfigDefault") # Good trajectories, better than RRTStar in planning time (1.0)
-# move_group.set_planner_id("BKPIECEkConfigDefault") # Can lead to atrocious trajectories. Seems to always find a good trajectory. Fast in planning (1.0) 
+# move_group.set_planner_id("BKPIECEkConfigDefault") # Can lead to atrocious trajectories. Seems to always find a good trajectory. Fast in planning (1.0)
 # move_group.set_planner_id("RRTstarkConfigDefault") # Very good trajectories. Not so fast in planning (1.5)
 # move_group.set_planner_id("RRTkConfigDefault") # Best at speed. Shitty trajectories (0.5)
-move_group.set_planner_id("RRTConnectkConfigDefault") # Best at speed. Shitty trajectories (0.5)
-                                                      # This is probably the one that we are going to use because
-                                                      # ever if the trajectories are not good it produces many of them
-                                                      # and it's easier to find one that is not soo bad between them
+# Best at speed. Shitty trajectories (0.5)
+move_group.set_planner_id("RRTConnectkConfigDefault")
+# This is probably the one that we are going to use because
+# ever if the trajectories are not good it produces many of them
+# and it's easier to find one that is not soo bad between them
 # move_group.set_planner_id("SemiPersistentLazyPRMstar")
 # move_group.set_planner_id("TRRTkConfigDefault") # Good speed and trajectories but shitty in finding trajectories (1.2)
 move_group.set_planning_time(FIRST_ITER_PLANNING_TIMEOUT)
@@ -801,9 +834,13 @@ rospy.loginfo("Splicing is now available")
 gripper_client = actionlib.SimpleActionClient(
     "/gripper_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
 gripper_client.wait_for_server()
+rospy.loginfo("Gripper client conected")
+
 point_head_client = actionlib.SimpleActionClient(
     "/head_controller/point_head_action", PointHeadAction)
 point_head_client.wait_for_server()
+rospy.loginfo("HeadPointer is connected")
+
 marker_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=2)
 gripper_pub = rospy.Publisher(
     "/parallel_gripper_controller/command", JointTrajectory, queue_size=2)
@@ -811,10 +848,12 @@ gripper_pub = rospy.Publisher(
 getBestHeadPos = rospy.ServiceProxy(
     "/tomato_counting/get_best_tilt", BestPos)
 getBestHeadPos.wait_for_service()
+rospy.loginfo("get_best_tilt is now ready")
 
 head_client = actionlib.SimpleActionClient(
     "/head_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
 head_client.wait_for_server()
+rospy.loginfo("follow_joint_trajectory is now ready")
 
 rospy.wait_for_service("/tomato_counting/get_best_tilt")
 rospy.loginfo("Service get_best_tilt ready")
@@ -829,14 +868,27 @@ addBasket()
 assert move_group.get_planning_frame() == "base_footprint", "Wrong planning frame"
 
 rospy.wait_for_service("/tomato_vision_manager/tomato_position_service")
+rospy.loginfo("tomato_position_service is now ready")
+
 getTomatoPosesProxy = rospy.ServiceProxy(
     "/tomato_vision_manager/tomato_position_service", LatestTomatoPositions)
+
+rospy.Service("arm_mover/stop", Empty, stopService)
+
+restartScanProxy = rospy.ServiceProxy("/tomato_vision_manager/start_scan", Empty)
+rospy.wait_for_service("/tomato_vision_manager/start_scan")
+rospy.loginfo("start_scan is now ready")
+
+getStateProxy = rospy.ServiceProxy("/tomato_vision_manager/get_state", CurrentVisionState)
+rospy.wait_for_service("/tomato_vision_manager/get_state")
+rospy.loginfo("get_state is now ready")
 
 x = threading.Thread(target=worker, args=())
 x.start()
 
 pickTomato()
 
+x.join()
 
 # TODO s
 # - In case that no tomato has been found in next_tomato wait for the head
