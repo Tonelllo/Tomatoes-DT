@@ -101,13 +101,21 @@ fsm::retval MoveCartesian::Execute()
     auto enableDbgPrnt = cnt % 100 == 0;
 
     //auto cartError = rml::CartesianError(robotModel->TransformationMatrix(robotInfo->toolID,rml::FrameID::WorldFrame), robotInfo->cartesianGoalFrame);
-    auto cartError = rml::CartesianError(robotModel->TransformationMatrix(robotInfo->toolID), robotInfo->cartesianGoalFrame);
+    Eigen::Vector6d cartError = rml::CartesianError(robotModel->TransformationMatrix(robotInfo->toolID), robotInfo->cartesianGoalFrame);
+    if (cartError.LinearVector().cwiseAbs().norm() > conf->linearErrorThreshold) {
+        cartError.at(3) = 0;
+        cartError.at(4) = 0;
+        cartError.at(5) = 0;
+    }
+    Eigen::Vector6d cartErrorTrue = rml::CartesianError(robotModel->TransformationMatrix(robotInfo->toolID), robotInfo->cartesianGoalFrame);
+    
 
     if (enableDbgPrnt) {
         std::cerr << tc::yellow << "[MoveCartesian::Execute] TASK INFO Start..." << tc::none << std::endl;
         //std::cerr << tc::magL << "[MoveCartesian::Execute] Current joint pos = " << robotInfo->armModel_.JointsPosition().transpose() << tc::none << std::endl;
         std::cerr << tc::magL << "[MoveCartesian::Execute] wTgoal = " << std::endl << robotInfo->cartesianGoalFrame << std::endl;
         std::cerr << tc::magL << "[MoveCartesian::Execute] wTtool = " << std::endl << robotModel->TransformationMatrix(rml::FrameID::WorldFrame, robotInfo->toolID) << std::endl;
+        std::cerr << tc::magL << "[MoveCartesian::Execute] wRPYtool = " << std::endl << robotModel->TransformationMatrix(rml::FrameID::WorldFrame, robotInfo->toolID).RotationMatrix().ToEulerRPY() << std::endl;
         std::cerr << tc::yellow << "[MoveCartesian::Execute] Cartesian error = " << cartError.transpose();
         std::cerr << " (lin err is " << cartError.LinearVector().cwiseAbs().norm() << 
         ", ang err is " << cartError.AngularVector().cwiseAbs().norm() << ")" << tc::none << std::endl;
@@ -123,9 +131,10 @@ fsm::retval MoveCartesian::Execute()
     cartesianDistanceTask_->Update();
     cartesianOrientationTask_->Update();
 
-    if ((cartError.LinearVector().cwiseAbs().norm() < conf->linearErrorThreshold)
-            && true) { //(cartError.AngularVector().cwiseAbs().norm() < conf->angularErrorThreshold) ) {
-        std::cout << tc::greenL << "[KCL]: Cartesian Position Reached (lin err is " << cartError.LinearVector().cwiseAbs().norm() << ")." << tc::none << std::endl;
+    if ((cartErrorTrue.LinearVector().cwiseAbs().norm() < conf->linearErrorThreshold) 
+            && (cartErrorTrue.AngularVector().cwiseAbs().norm() < conf->angularErrorThreshold) ) {
+        std::cout << tc::greenL << "[KCL]: Cacrtesian Position Reached (lin err is " << cartErrorTrue.LinearVector().cwiseAbs().norm()
+            << " and ang err is " << cartErrorTrue.AngularVector().cwiseAbs().norm() << ")." << tc::none << std::endl;
         fsm_->SetNextState(appleRobot::ID::states::idle);
         ok_ = true;
     } else if (moveTimer_.Elapsed() > conf->cartesianMoveTimeout) {
