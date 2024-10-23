@@ -1,4 +1,4 @@
-﻿#include "agri_control/kinematic_controller.hpp"
+#include "agri_control/kinematic_controller.hpp"
 #include "agri_control/control_configuration.hpp"
 
 #include <ros/package.h>
@@ -224,8 +224,8 @@ bool KinematicController::Initialization()
     // Attach a tool frame to the last joint
     std::string jointNID = armModel_->ID() + rml::FrameID::Joint + std::to_string(dof - 1);
     Eigen::TransformationMatrix jointN_T_toolF;
-    jointN_T_toolF.TranslationVector(Eigen::Vector3d(0.0,0,0.197));
-    Eigen::RotationMatrix toolRot = (rml::EulerRPY(1.571, 0, 0.0)).ToRotationMatrix();
+    jointN_T_toolF.TranslationVector(Eigen::Vector3d(0.0,0,0.197)); // rosrun tf tf_echo /arm_7_link /gripper_grasping_frame
+    Eigen::RotationMatrix toolRot = (rml::EulerRPY(0, 1.571, 0)).ToRotationMatrix();
     jointN_T_toolF.RotationMatrix(toolRot);
 
     robotModel_->AttachRigidBodyFrame(appleRobot::ID::RobotModel::ToolFrame, jointNID, jointN_T_toolF);
