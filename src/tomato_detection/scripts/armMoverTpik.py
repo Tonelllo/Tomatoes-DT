@@ -26,8 +26,8 @@ from tomato_detection.msg import ControlData
 from tomato_detection.msg import state_info
 
 GROUP_NAME = "arm_torso"
-TARGET_OFFSET = 0.21
-APPROACH_OFFSET = 0.30
+TARGET_OFFSET = 0.15
+APPROACH_OFFSET = 0.15
 AVOID_COLLISION_SPHERE_RAIDUS = 0.07
 EFFORT = 0.3
 CARTESIAN_FAILURE_THRESHOLD = 0.7
@@ -35,6 +35,8 @@ OPEN_GRIPPER_POS = 0.05
 DISTANCE_THRESHOLD = 0.05
 PLANNING_TIMEOUT = 0.5
 BASKET_JOINT_POSITION = [0.10, 1.47, 0.16, 0.0, 2.22, -1.9, -0.48, -1.39]
+
+failedAppleCenters = []
 
 # These settings generate 20 grasp positions
 L_ANGLE = 60
@@ -271,7 +273,7 @@ def setMarker(pose,rgbV):
     marker = Marker()
     marker.header.frame_id = "base_footprint"
     marker.header.stamp = rospy.Time.now()
-    marker.type = 2
+    marker.type = 1
     marker.id = 0
 
     marker.scale.x = 0.1
@@ -419,7 +421,9 @@ def generate_grasp_poses(object_pose, radius=APPROACH_OFFSET):
             # this rotation can be tuned with the dynamic params
             # multiplying later on
             roll, pitch, yaw = euler_from_quaternion(q)
-            q = quaternion_from_euler(math.radians(90), pitch, yaw)
+            #if radius == TARGET_OFFSET: q = quaternion_from_euler(math.radians(90), pitch, yaw)
+            #else:
+            q = quaternion_from_euler(0,0,3.14)
 
             x += object_pose.pose.position.x
             y += object_pose.pose.position.y
@@ -489,10 +493,14 @@ def resetHead():
     # head_client.wait_for_result()
     # rospy.loginfo("Head resetted")
 
+def checkNotPreviouslyFailed(lt):
+    for fp in failedAppleCenters:
+        if abs(fp.pose - lt.pose) < 0.01: return False
+    return True
 
 def getNewValidTomato(lt):
     index = 0
-    while index < len(lt) and checkDistanceUnderThreshold(lt[index]):
+    while index < len(lt) and checkDistanceUnderThreshold(lt[index]) and checkNotPreviouslyFailed(lt[index]):
         index += 1
 
     if index == len(lt):
@@ -621,13 +629,17 @@ def pickTomato():
                 poses = generate_grasp_poses(goal_pose, APPROACH_OFFSET)
                 pose1 = poses[int(len(poses)/2.0)]
                 print(bcolors.OKBLUE + "approach pose is " + str(pose1) + bcolors.ENDC)
-            setMarker(pose1,[0,1,0]) # rviz
-            setMarker2(goal_pose.pose,[1,0,0]) # rviz
             motionStatus, timeElapsedTPIK = MoveCartesian(pose1, 3, taskDataCopy.idMotion, taskDataCopy.ctrl_state, taskDataCopy.cart_ok, timeElapsedTPIK, 1000000)
             if (motionStatus == MotionState.MOTION_FINISHED):
                 print(bcolors.OKGREEN + "Plan approach OK" + bcolors.ENDC)
                 state = States.PLAN_PICK
                 timeElapsedTPIK = -1
+                rospy.sleep(10)
+            elif (motionStatus == MotionState.MOTION_FAILED):
+                failedAppleCenters.append(goal_pose)
+                state = States.PLAN_HOME
+                timeElapsedTPIK = -1
+
 
         elif state == States.PLAN_PICK:
             # rospy.sleep(1.0)
@@ -640,12 +652,16 @@ def pickTomato():
                 for p in gposes: print("a pick pose is " + str(p))
                 print(bcolors.OKBLUE + "pick pose is " + str(gpose1) + bcolors.ENDC)
             setMarker(gpose1,[1,0,0]) # rviz
-            setMarker2(goal_pose.pose,[1,0,0]) # rviz
+            #setMarker2(goal_pose.pose,[1,0,0]) # rviz
             motionStatus, timeElapsedTPIK = MoveCartesian(goal_pose.pose, 4, taskDataCopy.idMotion, taskDataCopy.ctrl_state, taskDataCopy.cart_ok, timeElapsedTPIK, 1000000)
             if (motionStatus == MotionState.MOTION_FINISHED):
                 print(bcolors.OKGREEN + "Plan pick OK" + bcolors.ENDC)
                 state = States.PLAN_GRAB
                 timeElapsedTPIK = -1
+                rospy.sleep(10)
+            elif (motionStatus == MotionState.MOTION_FAILED):
+                failedAppleCenters.append(goal_pose)
+                state = States.PLAN_APPROACH
 
         elif state == States.PLAN_GRAB:
             old_state = state
@@ -787,12 +803,7 @@ def getTomatoPoses():
             goal_pose.pose.position.x = pose.position.x
             goal_pose.pose.position.y = pose.position.y
             goal_pose.pose.position.z = pose.position.z
-            goal_pose.pose.orientation.x = 0.7071068
-            goal_pose.pose.orientation.y = 0
-            goal_pose.pose.orientation.z = 0
-            goal_pose.pose.orientation.w = 0.7071068
             id = pose.orientation.y
-            print("Tomato pose is " + str(goal_pose.pose))
             # NOTE 0 because TIAGO will stop when closing too hard
             radius = 0  # pose.orientation.z
             poses.append(goal_pose)
@@ -801,7 +812,7 @@ def getTomatoPoses():
     return (poses, id, radius / 2)
 
 # tpik state from /left_robot/ctrl/ctrl_data
-def TestTPIKServiceCart():
+def TestTPIKServiceCart(pose):
     rospy.wait_for_service('/left_robot/srv/control_command')
     from tomato_detection.srv import ControlCommand
     try:
@@ -810,8 +821,8 @@ def TestTPIKServiceCart():
             move_type = "absolute",
             joint_setpoint = [],
             joint_index = 0,
-            target_position = [0.38, 0.07, 0.25],
-            target_orientation = [1.548, -0.001, 0.010],
+            target_position = [pose.position.x, pose.position.y, pose.position.z],
+            target_orientation = [0,0,3.14],
             frame_type = 3,
             id = 0,
             gripper_setpoint = 0.0,
@@ -893,17 +904,17 @@ def TestTPIKServiceJoint():
 controllerType = ControllerType.TPIK
 
 if controllerType == ControllerType.TPIK_TEST:
-    TestTPIKServiceCart()
     #TestTPIKServiceJoint()
     testpose = PoseStamped()
-    testpose.pose.position.x = 0.38
-    testpose.pose.position.y = 0.007
-    testpose.pose.position.z = 0.25
+    testpose.pose.position.x = 0.82
+    testpose.pose.position.y = 0
+    testpose.pose.position.z = 0.7
     testpose.header.frame_id = "base_footprint"
-    testpose.pose.orientation.x = 0.7071068
+    testpose.pose.orientation.x = 0.707
     testpose.pose.orientation.y = 0
     testpose.pose.orientation.z = 0
-    testpose.pose.orientation.w = 0.7071068
+    testpose.pose.orientation.w = 0.707
+    TestTPIKServiceCart(testpose.pose)
     rospy.init_node("positionReacher")
     marker_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=2)
     marker_pub2 = rospy.Publisher("/visualization_goal", Marker, queue_size=2)
