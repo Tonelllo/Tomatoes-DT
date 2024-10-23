@@ -195,8 +195,10 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg)
   auto auxDepthInfo = m_point_cache_.getInterval(msg.header.stamp, msg.header.stamp);
   auto auxRgbInfo = m_rgb_cache_.getInterval(msg.header.stamp, msg.header.stamp);
 
-  if (auxInfo.empty() || auxDepthInfo.empty())
+  if (auxInfo.empty() || auxDepthInfo.empty() || auxRgbInfo.empty()){
+    /*ROS_WARN("Caches were empty");*/
     return;
+  }
 
   info = *auxInfo[0];
   depthInfo = *auxDepthInfo[0];
