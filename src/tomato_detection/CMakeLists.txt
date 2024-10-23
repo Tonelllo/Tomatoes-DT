@@ -81,6 +81,7 @@ add_service_files(
   FILES
   BestPos.srv
   LatestTomatoPositions.srv
+  CurrentVisionState.srv
 )
 
 ## Generate actions in the 'action' folder

@@ -6,27 +6,42 @@
 #include "ros/service_server.h"
 #include "std_srvs/EmptyRequest.h"
 #include "std_srvs/EmptyResponse.h"
+#include "tomato_detection/CurrentVisionStateResponse.h"
 #include "tomato_vision_manager.h"
 #include "std_srvs/Empty.h"
+#include "tomato_detection/CurrentVisionState.h"
 
 namespace
 {
-  enum class States
-  {
-    IDLE,
-    LOOK_UP,
-    SCAN,
-    GOTO_BEST,
-    COMPUTE_DISTANCES
-  };
+enum class States
+{
+  IDLE,
+  LOOK_UP,
+  SCAN,
+  GOTO_BEST,
+  COMPUTE_DISTANCES
+};
 
-  std::atomic<States> state(States::IDLE);
+std::atomic<States> state(States::IDLE);
 
-  bool stateMachineRestarter(std_srvs::EmptyRequest& req, std_srvs::EmptyResponse& res)
+bool stateMachineRestarter(std_srvs::EmptyRequest& req, std_srvs::EmptyResponse& res)
+{
+  state = States::LOOK_UP;
+  return true;
+}
+
+bool stateProvider(tomato_detection::CurrentVisionStateRequest& req, tomato_detection::CurrentVisionStateResponse& res)
+{
+  if (state == States::COMPUTE_DISTANCES)
   {
-    state = States::LOOK_UP;
-    return true;
+    res.scanFinished = true;
   }
+  else
+  {
+    res.scanFinished = false;
+  }
+  return true;
+}
 }  // namespace
 
 int main(int argc, char* argv[])
@@ -43,6 +58,7 @@ int main(int argc, char* argv[])
 
   ros::service::waitForService("tomato_counting/get_best_tilt");
   ros::ServiceServer serv = nh.advertiseService("/tomato_vision_manager/start_scan", stateMachineRestarter);
+  ros::ServiceServer stateServer = nh.advertiseService("/tomato_vision_manager/get_state", stateProvider);
 
   vm.createHeadClient();
 

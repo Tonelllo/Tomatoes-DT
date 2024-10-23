@@ -218,7 +218,7 @@ void VisionManager::computeDistances(geometry_msgs::PoseArray msg)
   tf2::Transform camera_to_torso;
   try
   {
-    transformStamped = m_buffer_.lookupTransform("base_footprint", m_camera_model_.tfFrame(), ros::Time(0));
+    transformStamped = m_buffer_.lookupTransform("base_footprint", m_camera_model_.tfFrame(), ros::Time(0)); // TODO maybe put time
     camera_to_torso = stampedTransform2tf2Transform(transformStamped);
   }
   catch (tf2::TransformException& ex)
