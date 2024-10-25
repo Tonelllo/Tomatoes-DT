@@ -88,8 +88,8 @@ def callback(data):
             # currently_detected_keys.append(id)
             # if id not in tomatoes:
             # You lose the first
-            if label != 0:  # If not ripe do not send
-                continue
+            # if label != 0:  # If not ripe do not send TODO
+            #     continue
             x, y, w, h = box
             tomatoes[index] = {"pos": (x, y, w, h), "cls": int(label)}
             index += 1

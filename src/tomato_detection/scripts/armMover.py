@@ -27,32 +27,32 @@ from std_srvs.srv import Empty
 import threading
 
 GROUP_NAME = "arm_torso"
-TARGET_OFFSET = 0.21
-APPROACH_OFFSET = 0.33
-AVOID_COLLISION_SPHERE_RAIDUS = 0.07
+TARGET_OFFSET = 0.19
+APPROACH_OFFSET = 0.50 #0.30
+AVOID_COLLISION_SPHERE_RAIDUS = 0.10
 EFFORT = 0.3
 CARTESIAN_FAILURE_THRESHOLD = 0.7
 OPEN_GRIPPER_POS = 0.044
 CLOSE_GRIPPER_POS = 0.001
 DISTANCE_THRESHOLD = 0.05
-PLANNING_TIMEOUT = 1.0
+PLANNING_TIMEOUT = 2.0
 PLAN_HOME_TIMEOUT = 5.0
-FIRST_ITER_PLANNING_TIMEOUT = 1.0
+FIRST_ITER_PLANNING_TIMEOUT = 2.0
 PLAN_HOME_PLANNER = "RRTstarkConfigDefault"
 NORMAL_PLANER = "RRTConnectkConfigDefault"
-BASKET_JOINT_POSITION = [0.10, 1.47, 0.16, 0.0, 2.22, -1.9, -0.48, -1.39]
+BASKET_JOINT_POSITION = [0.133, 0.72, 0.06, 0.50, 1.42, -0.54, 0.56, -0.2]
 ARM_TORSO = ["torso_lift_joint", "arm_1_joint", "arm_2_joint",
              "arm_3_joint", "arm_4_joint", "arm_5_joint", "arm_6_joint", "arm_7_joint"]
 GRIPPER = ["gripper_left_finger_joint", "gripper_right_finger_joint"]
 HEAD = ["head_1_joint", "head_2_joint"]
 
 # These settings generate 20 grasp positions
-L_ANGLE = 45
-R_ANGLE = 45
+L_ANGLE = 5
+R_ANGLE = 5
 T_ANGLE = 0
-D_ANGLE = 60
-RL_STEP = 30
-TD_STEP = 30
+D_ANGLE = 30
+RL_STEP = 10
+TD_STEP = 10
 
 planning_mutex = threading.Lock()
 status_mutex = Lock()
@@ -81,6 +81,7 @@ class States(Enum):
 
 
 def closeGripper():
+    return
     """
     Close gripper.
 
@@ -95,13 +96,13 @@ def closeGripper():
 
     point = JointTrajectoryPoint()
     point.positions = [tomato_radius, tomato_radius]
-    point.effort = [EFFORT, EFFORT]
+    # point.effort = [EFFORT, EFFORT]
     point.time_from_start = rospy.Duration(1, 0)
     goal.trajectory.points.append(point)
 
     gripper_client.send_goal(goal)
-    # rospy.sleep(1)
     # gripper_client.wait_for_result()
+    # rospy.sleep(1)
 
 
 def openGripper():
@@ -117,19 +118,23 @@ def openGripper():
     goal.trajectory.points.append(point)
 
     gripper_client.send_goal(goal)
+    gripper_client.wait_for_result()
     # rospy.sleep(1)
-    # gripper_client.wait_for_result()
 
 
 def addBasket():
     """Add the tomato basket to the scene."""
     box_position = PoseStamped()
     box_position.header.frame_id = "base_footprint"
-    box_position.pose.position.x = 0.4
-    box_position.pose.position.y = 0
+    box_position.pose.position.x = 0.32
+    box_position.pose.position.y = -0.435
     box_position.pose.position.z = 0.1
     box_position.pose.orientation.w = 1.0
-    scene.add_box("tomato_basket", box_position, (0.20, 0.40, 0.20))
+    scene.add_box("tomato_basket", box_position, (0.50, 0.30, 0.20))
+
+
+def removeBasket():
+    scene.remove_world_object("tomato_basket")
 
 
 def setMarker(pose):
@@ -345,6 +350,7 @@ def lookAtTomato(tomato_position):
 def resetHead():
     """Reset the head at the initial position that was calculated beeing the best."""
     best_head_tilt = getBestHeadPos().bestpos
+    best_head_tilt = 0
     point_head_client.cancel_all_goals()
     head_goal = FollowJointTrajectoryGoal()
     look_point = JointTrajectoryPoint()
@@ -366,6 +372,7 @@ def getNewValidTomato(lt):
 
     if index == len(lt):
         rospy.logwarn("All reachable tomatoes have been picked, moving head")
+        rospy.sleep(100)
         return False
         # rospy.logwarn("All reachable tomatoes have been picked")
         # rospy.signal_shutdown("FINISHED TOMATOES")
@@ -429,8 +436,8 @@ def planNextApproach(goal_pose, radius, first_iteration=False, home_state=None):
             plans.append((pos, gpos, pplan))
 
         current_goal_idx += 1
-        if first_iteration:
-            break
+        # if first_iteration:
+        #     break
 
     if len(plans) == 0:
         return False
@@ -505,7 +512,10 @@ def worker():
         print("Starting execution:", state_name)
         success = move_group.execute(next_traj, wait=True)
         print("Finished execution:", state_name)
+        # if not success and state_name not in ["pick", "approach_pick", "back"]:
         if not success:
+            print("FAILED STATE", state_name)
+            rospy.sleep(10000)
             recoverExecutionError()
             future_plans_num -= 1
             trash_state = "xxx"
@@ -527,7 +537,7 @@ def pickTomato():
     latest_planned_state = None
     approach_plan = None
     back_plan = None
-    first_iter = True
+    first_iter = False
     HOME_STATE = None
 
     tomato_poses_mutex.acquire()
@@ -542,7 +552,8 @@ def pickTomato():
 
         if state == States.RESTART:
             while future_plans_num != 0:
-                rospy.loginfo("Waiting for completion of the previous movement")
+                rospy.loginfo(
+                    "Waiting for completion of the previous movement")
                 rospy.sleep(1)
             restartScanProxy()
             state = States.WAIT_FOR_SCAN
@@ -577,6 +588,10 @@ def pickTomato():
             if res.lower() == "n":
                 rospy.signal_shutdown("FINISHED TOMATOES")
                 sys.exit(0)
+
+            tomato_poses_mutex.acquire()
+            tomato_poses = getTomatoPoses()
+            tomato_poses_mutex.release()
 
         elif state == States.HOME:
             break
@@ -621,7 +636,9 @@ def pickTomato():
             move_group.set_start_state(latest_planned_state)
             (traj, frac) = move_group.compute_cartesian_path(
                 [l_pick_pose], 0.01, avoid_collisions=False)
-            if frac >= CARTESIAN_FAILURE_THRESHOLD:
+            print("Fraction of approach", frac)
+            # if frac >= CARTESIAN_FAILURE_THRESHOLD:
+            if True:
                 (name, (approach_traj, gpos)) = approach_plan
 
                 spliced_traj = getSplicedTraj(approach_traj, traj)
@@ -693,7 +710,7 @@ def pickTomato():
             if back_plan is not False:
                 (state, traj) = back_plan
                 spliced_traj = getSplicedTraj(traj, t)
-                if spliced_traj.success:
+                if False and spliced_traj.success: # TODO no splicing
                     for index in range(len(spliced_traj.res.joint_trajectory.points)):
                         spliced_traj.res.joint_trajectory.points[index].time_from_start += rospy.Duration(
                             0, 500)
@@ -726,8 +743,10 @@ def isRipe(tomato):
     :return: True if ripe
     :rtype: bool
     """
-    if int(tomato.orientation.x) == 0:
+    if int(tomato.orientation.x) in [0, 1]:
         return True
+    # if int(tomato.orientation.x) == 0:
+    #     return True
     else:
         return False
 
@@ -863,6 +882,7 @@ status_sub = rospy.Subscriber(
 
 print("Current planner", move_group.get_planner_id())
 
+removeBasket()
 addBasket()
 
 assert move_group.get_planning_frame() == "base_footprint", "Wrong planning frame"
@@ -875,11 +895,13 @@ getTomatoPosesProxy = rospy.ServiceProxy(
 
 rospy.Service("arm_mover/stop", Empty, stopService)
 
-restartScanProxy = rospy.ServiceProxy("/tomato_vision_manager/start_scan", Empty)
+restartScanProxy = rospy.ServiceProxy(
+    "/tomato_vision_manager/start_scan", Empty)
 rospy.wait_for_service("/tomato_vision_manager/start_scan")
 rospy.loginfo("start_scan is now ready")
 
-getStateProxy = rospy.ServiceProxy("/tomato_vision_manager/get_state", CurrentVisionState)
+getStateProxy = rospy.ServiceProxy(
+    "/tomato_vision_manager/get_state", CurrentVisionState)
 rospy.wait_for_service("/tomato_vision_manager/get_state")
 rospy.loginfo("get_state is now ready")
 
