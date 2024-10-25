@@ -36,23 +36,31 @@ OPEN_GRIPPER_POS = 0.044
 CLOSE_GRIPPER_POS = 0.001
 DISTANCE_THRESHOLD = 0.05
 PLANNING_TIMEOUT = 1.0
-PLAN_HOME_TIMEOUT = 5.0
+PLAN_HOME_TIMEOUT = 1.0
 FIRST_ITER_PLANNING_TIMEOUT = 1.0
 PLAN_HOME_PLANNER = "RRTstarkConfigDefault"
-NORMAL_PLANER = "RRTConnectkConfigDefault"
-BASKET_JOINT_POSITION = [0.10, 1.47, 0.16, 0.0, 2.22, -1.9, -0.48, -1.39]
+NORMAL_PLANER = "RRTstarkConfigDefault"
+BASKET_JOINT_POSITION = [0.133, 0.72, 0.06, 0.50, 1.42, -0.54, 0.56, -0.2]
+PRE_APPROACH_POSITION = [0.117, 1.56, -
+                         1.087, -3.307,  2.184, -1.184, -0.895, -0.33]
 ARM_TORSO = ["torso_lift_joint", "arm_1_joint", "arm_2_joint",
              "arm_3_joint", "arm_4_joint", "arm_5_joint", "arm_6_joint", "arm_7_joint"]
 GRIPPER = ["gripper_left_finger_joint", "gripper_right_finger_joint"]
 HEAD = ["head_1_joint", "head_2_joint"]
 
 # These settings generate 20 grasp positions
-L_ANGLE = 45
-R_ANGLE = 45
-T_ANGLE = 0
-D_ANGLE = 60
+L_ANGLE = 0
+R_ANGLE = 1
+T_ANGLE = 45
+D_ANGLE = 46
 RL_STEP = 30
 TD_STEP = 30
+
+
+class Colors:
+    blue = "\033[34m"
+    reset = "\033[0m"
+
 
 planning_mutex = threading.Lock()
 status_mutex = Lock()
@@ -69,15 +77,17 @@ class States(Enum):
     RESTART = -2
     WAIT_FOR_SCAN = -1
     RESET = 0
-    PLAN_APPROACH = 1
-    PLAN_PICK = 2
-    PLAN_GRAB = 3
-    PLAN_BACK = 4
-    PLAN_HOME = 5
-    PLAN_NEXT_TOMATO = 6
-    PLAN_RELEASE = 7
-    HOME = 8
-    EXECUTING_MOVEMENT = 9
+    PLAN_PRE_APPROACH = 1
+    PLAN_APPROACH = 2
+    PLAN_PICK = 3
+    PLAN_GRAB = 4
+    PLAN_BACK = 5
+    PLAN_PRE_HOME = 6
+    PLAN_HOME = 7
+    PLAN_NEXT_TOMATO = 8
+    PLAN_RELEASE = 9
+    HOME = 10
+    EXECUTING_MOVEMENT = 11
 
 
 def closeGripper():
@@ -127,11 +137,15 @@ def addBasket():
     """Add the tomato basket to the scene."""
     box_position = PoseStamped()
     box_position.header.frame_id = "base_footprint"
-    box_position.pose.position.x = 0.4
-    box_position.pose.position.y = 0
+    box_position.pose.position.x = 0.32
+    box_position.pose.position.y = -0.435
     box_position.pose.position.z = 0.1
     box_position.pose.orientation.w = 1.0
-    scene.add_box("tomato_basket", box_position, (0.20, 0.40, 0.20))
+    scene.add_box("tomato_basket", box_position, (0.50, 0.30, 0.20))
+
+
+def removeBasket():
+    scene.remove_world_object("tomato_basket")
 
 
 def setMarker(pose):
@@ -347,6 +361,7 @@ def lookAtTomato(tomato_position):
 def resetHead():
     """Reset the head at the initial position that was calculated beeing the best."""
     best_head_tilt = getBestHeadPos().bestpos
+    best_head_tilt = 0  # TODO fake
     point_head_client.cancel_all_goals()
     head_goal = FollowJointTrajectoryGoal()
     look_point = JointTrajectoryPoint()
@@ -380,17 +395,21 @@ def planNextApproach(goal_pose, radius, first_iteration=False, home_state=None):
     pre_poses = generate_grasp_poses(goal_pose, APPROACH_OFFSET)
     pre_gposes = generate_grasp_poses(goal_pose, TARGET_OFFSET)
 
-    f, s = np.array_split(pre_poses, 2)
-    f = np.flip(f)
-    poses = [val for pair in zip(f, s) for val in pair]
+    if len(pre_poses) != 1:
+        f, s = np.array_split(pre_poses, 2)
+        f = np.flip(f)
+        poses = [val for pair in zip(f, s) for val in pair]
+    else:
+        poses = pre_poses
 
-    f, s = np.array_split(pre_gposes, 2)
-    f = np.flip(f)
-    gposes = [val for pair in zip(f, s) for val in pair]
+    if len(pre_gposes) != 1:
+        f, s = np.array_split(pre_gposes, 2)
+        f = np.flip(f)
+        gposes = [val for pair in zip(f, s) for val in pair]
+    else:
+        gposes = pre_gposes
 
-    status_mutex.acquire()
     current_goal_idx = max(len(status_array) - 1, 0)
-    status_mutex.release()
 
     current_best_plan_index = -1
     succ_count = 0
@@ -400,12 +419,9 @@ def planNextApproach(goal_pose, radius, first_iteration=False, home_state=None):
         if rospy.is_shutdown():
             sys.exit()
             break
-        planning_mutex.acquire()
-        if home_state is not None:
-            move_group.set_start_state(home_state)
+        move_group.set_start_state_to_current_state()
         move_group.set_pose_target(pos)
         pplan = move_group.plan()
-        planning_mutex.release()
         (success, trajectory, time, error) = pplan
         count += 1
         if success:
@@ -413,6 +429,7 @@ def planNextApproach(goal_pose, radius, first_iteration=False, home_state=None):
         print("Successful plans: ["+str(succ_count) +
               "/12], Processed: ["+str(count)+"/12]")
         if not success:
+            rospy.logerr("Planning failed for plan approach")
             continue
         inserted = False
         for idx, plan in enumerate(plans):
@@ -473,6 +490,7 @@ def recoverExecutionError():
     openGripper()
     removeSphere()
 
+
 def pickTomato():
     """
     State machine that enables the picking of the tomatoes.
@@ -483,10 +501,7 @@ def pickTomato():
     l_pick_pose = Pose()
     goal_pose = None
     next_tomato = None
-    latest_planned_state = None
-    approach_plan = None
-    back_plan = None
-    first_iter = True
+    first_iter = False
     HOME_STATE = None
 
     tomato_poses_mutex.acquire()
@@ -496,6 +511,7 @@ def pickTomato():
     while not rospy.is_shutdown():
 
         if state == States.RESET:
+            print(f"{Colors.blue}Planning reset{Colors.reset}")
             resetHead()
             openGripper()
             move_group.set_joint_value_target(BASKET_JOINT_POSITION)
@@ -509,48 +525,65 @@ def pickTomato():
                 sys.exit()
                 rospy.logerr("Start not reachable")
 
-            state = States.PLAN_APPROACH
+            state = States.PLAN_PRE_APPROACH
             res = input("Ready to start? [Y/n]: ")
             if res.lower() == "n":
                 rospy.signal_shutdown("FINISHED TOMATOES")
                 sys.exit(0)
 
+            tomato_poses_mutex.acquire()
+            tomato_poses = getTomatoPoses()
+            tomato_poses_mutex.release()
+
         elif state == States.HOME:
             break
-        elif state == States.PLAN_APPROACH:
+        elif state == States.PLAN_PRE_APPROACH:
+            print(f"{Colors.blue}Planning pre approach{Colors.reset}")
             goal_pose = getNewValidTomato(tomato_poses)
 
             if goal_pose is False:
                 state = States.RESTART
                 continue
 
+            move_group.set_joint_value_target(PRE_APPROACH_POSITION)
+            move_group.set_start_state_to_current_state()
+            succ = move_group.go()
+            if succ is False:
+                rospy.logerr("IMPOSSIBLE TO REACH PREAPPROACh")
+                state = States.PLAN_PRE_APPROACH
+                continue
+
             processed_tomatoes.append(
                 np.array([goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z]))
 
-            rospy.loginfo("Planning approach for tomato")
+            state = States.PLAN_APPROACH
+        elif state == States.PLAN_APPROACH:
+            print(f"{Colors.blue}Planning approach{Colors.reset}")
             setMarker(goal_pose.pose)
 
             next_tomato = planNextApproach(
                 goal_pose, AVOID_COLLISION_SPHERE_RAIDUS, first_iteration=first_iter, home_state=HOME_STATE)
             first_iter = False
 
-            if next_tomato is False: # TODO check
+            if next_tomato is False:  # TODO check
+                rospy.logerr("next tomato is false")
                 continue
             (success, traj, time, error, gpos, ppos, idx) = next_tomato
 
             move_group.set_start_state_to_current_state()
             success = move_group.execute(traj)
             if not success:
+                rospy.logerr("error in execution")
                 state = States.PLAN_APPROACH
 
             # LATER
             # TODO probably not needed
             l_approach_pose = copy.deepcopy(gpos)
             l_pick_pose = copy.deepcopy(ppos)
-            rospy.logwarn("Planning approach SUCCESS")
 
             state = States.PLAN_PICK
         elif state == States.PLAN_PICK:
+            print(f"{Colors.blue}Planning pick{Colors.reset}")
             move_group.set_start_state_to_current_state()
             (traj, frac) = move_group.compute_cartesian_path(
                 [l_pick_pose], 0.01, avoid_collisions=False)
@@ -562,16 +595,15 @@ def pickTomato():
                 rospy.logwarn("Plan pick Failed")
                 state = States.PLAN_BACK
                 continue
-            print("Pick success")
             state = States.PLAN_GRAB
 
         elif state == States.PLAN_GRAB:
-            print("planning grab")
+            print(f"{Colors.blue}Planning grab{Colors.reset}")
             closeGripper()
             state = States.PLAN_BACK
 
         elif state == States.PLAN_BACK:
-            rospy.loginfo("Plannig back")
+            print(f"{Colors.blue}Planning back{Colors.reset}")
             move_group.set_start_state_to_current_state()
             (traj, frac) = move_group.compute_cartesian_path(
                 [l_approach_pose], 0.01, avoid_collisions=False)
@@ -583,12 +615,20 @@ def pickTomato():
             else:
                 rospy.loginfo("Planning back failed")
                 rospy.sleep(10000)
-            print("back succ")
+            state = States.PLAN_PRE_HOME
+
+        elif state == States.PLAN_PRE_HOME:
+            print(f"{Colors.blue}Planning pre home{Colors.reset}")
+            move_group.set_joint_value_target(PRE_APPROACH_POSITION)
+            move_group.set_start_state_to_current_state()
+            succ = move_group.go()
+            if succ is False:
+                rospy.logerr("IMPOSSIBLE TO REACH PREHOME")
             state = States.PLAN_HOME
 
         elif state == States.PLAN_HOME:
             # resetHead()
-            rospy.loginfo("Planning approach for HOME")
+            print(f"{Colors.blue}Planning home{Colors.reset}")
             move_group.set_start_state_to_current_state()
             move_group.set_joint_value_target(BASKET_JOINT_POSITION)
             move_group.allow_replanning(True)
@@ -608,9 +648,9 @@ def pickTomato():
             state = States.PLAN_RELEASE
 
         elif state == States.PLAN_RELEASE:
-            print("planning release")
+            print(f"{Colors.blue}Planning release{Colors.reset}")
             openGripper()
-            state = States.PLAN_APPROACH
+            state = States.PLAN_PRE_APPROACH
 
 
 def isRipe(tomato):
@@ -693,6 +733,35 @@ def getTomatoPoses():
             poses.append(goal_pose)
         else:
             rospy.logerr("Received NaN")
+
+    p1 = PoseStamped()
+    p1.pose.position.x = 0.7
+    p1.pose.position.y = 0.0
+    p1.pose.position.z = 0.7
+    p1.pose.orientation.x = 0.7
+    p1.pose.orientation.y = 0.0
+    p1.pose.orientation.z = 0.0
+    p1.pose.orientation.w = 0.7
+
+    p2 = PoseStamped()
+    p2.pose.position.x = 0.7
+    p2.pose.position.y = 0.2
+    p2.pose.position.z = 0.7
+    p2.pose.orientation.x = 0.7
+    p2.pose.orientation.y = 0.0
+    p2.pose.orientation.z = 0.0
+    p2.pose.orientation.w = 0.7
+
+    p3 = PoseStamped()
+    p3.pose.position.x = 0.7
+    p3.pose.position.y = -0.2
+    p3.pose.position.z = 0.7
+    p3.pose.orientation.x = 0.7
+    p3.pose.orientation.y = 0.0
+    p3.pose.orientation.z = 0.0
+    p3.pose.orientation.w = 0.7
+
+    poses = [p1, p2, p3]
     return poses
 
 
@@ -758,6 +827,7 @@ status_sub = rospy.Subscriber(
 
 print("Current planner", move_group.get_planner_id())
 
+removeBasket()
 addBasket()
 
 assert move_group.get_planning_frame() == "base_footprint", "Wrong planning frame"
@@ -770,11 +840,13 @@ getTomatoPosesProxy = rospy.ServiceProxy(
 
 rospy.Service("arm_mover/stop", Empty, stopService)
 
-restartScanProxy = rospy.ServiceProxy("/tomato_vision_manager/start_scan", Empty)
+restartScanProxy = rospy.ServiceProxy(
+    "/tomato_vision_manager/start_scan", Empty)
 rospy.wait_for_service("/tomato_vision_manager/start_scan")
 rospy.loginfo("start_scan is now ready")
 
-getStateProxy = rospy.ServiceProxy("/tomato_vision_manager/get_state", CurrentVisionState)
+getStateProxy = rospy.ServiceProxy(
+    "/tomato_vision_manager/get_state", CurrentVisionState)
 rospy.wait_for_service("/tomato_vision_manager/get_state")
 rospy.loginfo("get_state is now ready")
 
