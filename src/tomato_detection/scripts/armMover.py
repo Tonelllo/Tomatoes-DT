@@ -522,7 +522,10 @@ def pickTomato():
                 rospy.loginfo("Waiting for scan")
                 scanFinished = getStateProxy().scanFinished
                 rospy.sleep(1)
-            state = States.PLAN_APPROACH
+
+            tomato_poses = getTomatoPoses()
+
+            state = States.PLAN_PRE_APPROACH
 
         elif state == States.RESET:
             print(f"{Colors.blue}Planning reset{Colors.reset}")
@@ -540,6 +543,7 @@ def pickTomato():
                 rospy.logerr("Start not reachable")
 
             state = States.PLAN_PRE_APPROACH
+            # restartScanProxy()
             res = input("Ready to start? [Y/n]: ")
             if res.lower() == "n":
                 rospy.signal_shutdown("FINISHED TOMATOES")
@@ -629,7 +633,7 @@ def pickTomato():
                     state = States.PLAN_BACK
             else:
                 rospy.logwarn("Plan pick Failed")
-                state = States.PLAN_BACK
+                state = States.PLAN_PICK
                 continue
             if not FULL_SPEED:
                 input()
@@ -666,9 +670,10 @@ def pickTomato():
             succ = move_group.go()
             if succ is False:
                 rospy.logerr("IMPOSSIBLE TO REACH PREHOME")
+            else:
+                state = States.PLAN_HOME
             if not FULL_SPEED:
                 input()
-            state = States.PLAN_HOME
 
         elif state == States.PLAN_HOME:
             # resetHead()
@@ -700,7 +705,7 @@ def pickTomato():
             openGripper()
             if not FULL_SPEED:
                 input()
-            state = States.RESTART
+            state = States.PLAN_PRE_APPROACH
 
 
 def isRipe(tomato):
@@ -807,8 +812,8 @@ move_group.set_planner_id(NORMAL_PLANER)
 # move_group.set_planner_id("SemiPersistentLazyPRMstar")
 # move_group.set_planner_id("TRRTkConfigDefault") # Good speed and trajectories but shitty in finding trajectories (1.2)
 move_group.set_planning_time(FIRST_ITER_PLANNING_TIMEOUT)
-# move_group.set_max_velocity_scaling_factor(0.3)
-# move_group.set_max_acceleration_scaling_factor(0.3)
+move_group.set_max_velocity_scaling_factor(0.3)
+move_group.set_max_acceleration_scaling_factor(0.3)
 
 getSplicedTraj = rospy.ServiceProxy(
     "/tomato_sync/getSplicedTraj", SpliceService)

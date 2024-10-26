@@ -150,12 +150,12 @@ void VisionManager::setNextPoint(float head_tilt, float time_to_reach)
 
 void VisionManager::lookUp()
 {
-  setNextPoint(20, 3);
+  setNextPoint(20, 5);
 }
 
 void VisionManager::scan()
 {
-  setNextPoint(-30, 5);
+  setNextPoint(-30, 10);
 }
 
 void VisionManager::lookAtBestPosition()
