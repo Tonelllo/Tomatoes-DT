@@ -35,11 +35,13 @@ CARTESIAN_FAILURE_THRESHOLD = 0.7
 OPEN_GRIPPER_POS = 0.044
 CLOSE_GRIPPER_POS = 0.001
 DISTANCE_THRESHOLD = 0.03
+APPROACH_TIMEOUT = 5.0
 PLANNING_TIMEOUT = 3.0
 PLAN_HOME_TIMEOUT = 1.0
 FIRST_ITER_PLANNING_TIMEOUT = 1.0
 # PLAN_HOME_PLANNER = "RRTstarkConfigDefault"
 # NORMAL_PLANER = "RRTstarkConfigDefault"
+PLAN_APPROACH_PLANNER = "RRTstarkConfigDefault"
 PLAN_HOME_PLANNER = "RRTConnectkConfigDefault"
 NORMAL_PLANER = "RRTConnectkConfigDefault"
 BASKET_JOINT_POSITION = [0.133, 0.72, 0.06, 0.50, 1.42, -0.54, 0.56, -0.2]
@@ -571,9 +573,12 @@ def pickTomato():
             pre_goal_pose.pose.position.x -= 0.1
             scene.add_box("plane", goal_pose, size=(0.40, 10, 10))
             move_group.set_start_state_to_current_state()
+            move_group.set_planning_time(APPROACH_TIMEOUT)
+            move_group.set_planner_id(PLAN_APPROACH_PLANNER)
             next_tomato = planNextApproach(
                 pre_goal_pose, AVOID_COLLISION_SPHERE_RAIDUS, first_iteration=first_iter, home_state=HOME_STATE)
             first_iter = False
+            move_group.set_planner_id(NORMAL_PLANER)
 
             if next_tomato is False:  # TODO check
                 rospy.logerr("next tomato is false")
